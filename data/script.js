@@ -1,7 +1,7 @@
 // ======= Status =======
 async function fetchStatus() {
   try {
-    const data = await fetch('/api/status').then(r => r.json());
+    const data = await fetch('api/status').then(r => r.json());
     document.getElementById('ip').textContent     = data.ip;
     document.getElementById('rssi').textContent   = data.rssi + ' dBm';
     document.getElementById('uptime').textContent = formatUptime(data.uptime);
@@ -27,7 +27,7 @@ const MODE_CLASS = ['mode-input', 'mode-output', 'mode-pullup'];
 
 async function fetchGpio() {
   try {
-    const data = await fetch('/api/gpio').then(r => r.json());
+    const data = await fetch('api/gpio').then(r => r.json());
     const isFirst = Object.keys(gpioState).length === 0;
     data.pins.forEach(p => { gpioState[p.name] = p; });
     if (isFirst) renderGpioGrid(data.pins);
@@ -36,7 +36,7 @@ async function fetchGpio() {
 }
 
 async function setGpio(pin, mode, value) {
-  await fetch('/api/gpio/set', {
+  await fetch('api/gpio/set', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pin, mode, value }),
