@@ -358,6 +358,16 @@ input[type="file"] { display: none; }
   font-size: .62rem;
   color: #334155;
 }
+.pin-badge-ro {
+  font-size: .58rem;
+  color: #64748b;
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  align-self: flex-start;
+}
 .pin-editable.pin-label-hint:hover,
 .pin-names:hover .pin-label-hint { color: #475569; }
 

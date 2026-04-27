@@ -199,13 +199,21 @@ async function fetchGpio() {
 }
 
 async function setGpio(pin, mode, value) {
-  await fetch('api/gpio/set', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ pin, mode, value }),
-  });
-  gpioState[pin].mode  = mode;
-  gpioState[pin].value = value;
+  const prev = { ...gpioState[pin] }; // บันทึก state เดิมไว้ก่อน
+  try {
+    const res = await fetch('api/gpio/set', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ pin, mode, value }),
+    });
+    if (!res.ok) throw new Error(res.status);
+    gpioState[pin].mode  = mode;
+    gpioState[pin].value = value;
+  } catch {
+    // คืน state เดิมถ้า request ล้มเหลว
+    gpioState[pin] = prev;
+    showToast('สั่งงาน GPIO ไม่ได้', 'err');
+  }
   const card = document.querySelector(`[data-pin="${pin}"]`);
   if (card) renderPinCard(card, gpioState[pin]);
   updateGpioStats();
@@ -254,6 +262,7 @@ function renderPinCard(card, p) {
   const label      = gpioLabels[p.name] || '';
   const canControl = deviceRole !== 'viewer';
   const isHigh     = p.mode === 1 && p.value === 1;
+  const inputOnly  = !!p.inputOnly; // GPIO34/35/36/39 บน ESP32 ปกติ
 
   card.className   = 'pin-card' + (isHigh ? ' pin-high' : '');
   card.dataset.pin = p.name;
@@ -268,17 +277,20 @@ function renderPinCard(card, p) {
         ${label
           ? `<span class="pin-secondary">${p.name}</span>`
           : `<span class="pin-label-hint">${canControl ? '+ ตั้งชื่อ' : ''}</span>`}
+        ${inputOnly ? `<span class="pin-badge-ro">Input only</span>` : ''}
       </div>
       <span class="pin-gpio">GPIO${p.gpio}</span>
     </div>
     <div class="pin-modes">
-      ${[0,1,2].map(m => `
-        <button type="button"
+      ${[0,1,2].map(m => {
+        const blocked = inputOnly && m !== 0; // input-only: OUTPUT/PULLUP ใช้ไม่ได้
+        return `<button type="button"
           class="mode-btn ${p.mode===m ? 'active-mode-'+m : ''}"
-          ${canControl ? `onclick="setGpio('${p.name}',${m},${p.mode===1?p.value:0})"` : 'disabled'}
-          title="${canControl ? MODE_LABEL[m] : 'Viewer ไม่มีสิทธิ์'}">
+          ${(canControl && !blocked) ? `onclick="setGpio('${p.name}',${m},${p.mode===1?p.value:0})"` : 'disabled'}
+          title="${blocked ? 'Input only pin' : canControl ? MODE_LABEL[m] : 'Viewer ไม่มีสิทธิ์'}">
           ${MODE_LABEL[m]}
-        </button>`).join('')}
+        </button>`;
+      }).join('')}
     </div>
     <div class="pin-value">
       ${p.mode === 1 ? renderOutput(p, canControl) : renderInput(p)}
