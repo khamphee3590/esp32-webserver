@@ -15,12 +15,37 @@
 #define DNS_PORT       53
 #define AP_IP          "192.168.4.1"
 
-// ======= GPIO Definitions =======
-struct PinDef { const char* name; uint8_t gpio; bool analog; };
+// ======= GPIO Definitions (ESP32 38-pin DevKit) =======
+// GPIO 6–11 ต่อกับ Internal Flash — ห้ามใช้
+// GPIO 34, 35, 36, 39 เป็น Input Only (ไม่รองรับ OUTPUT)
+struct PinDef { const char* name; uint8_t gpio; bool analog; bool inputOnly; };
 const PinDef PINS[] = {
-    {"D2",5,0},{"D3",6,0},{"D4",7,0},{"D5",8,0},{"D6",9,0},{"D7",10,0},
-    {"D8",17,0},{"D9",18,0},{"D10",21,0},{"D11",38,0},{"D12",47,0},{"D13",48,0},
-    {"A0",1,1},{"A1",2,1},{"A2",3,1},{"A3",4,1},{"A4",11,1},{"A5",12,1},{"A6",13,1},{"A7",14,1},
+    // Digital I/O
+    {"GPIO2",  2,  false, false},  // LED_BUILTIN
+    {"GPIO4",  4,  false, false},
+    {"GPIO5",  5,  false, false},
+    {"GPIO12", 12, false, false},
+    {"GPIO13", 13, false, false},
+    {"GPIO14", 14, false, false},
+    {"GPIO15", 15, false, false},
+    {"GPIO16", 16, false, false},
+    {"GPIO17", 17, false, false},
+    {"GPIO18", 18, false, false},
+    {"GPIO19", 19, false, false},
+    {"GPIO21", 21, false, false},
+    {"GPIO22", 22, false, false},
+    {"GPIO23", 23, false, false},
+    // Analog + Digital
+    {"GPIO25", 25, true,  false},
+    {"GPIO26", 26, true,  false},
+    {"GPIO27", 27, true,  false},
+    {"GPIO32", 32, true,  false},
+    {"GPIO33", 33, true,  false},
+    // Input Only (ADC)
+    {"GPIO34", 34, true,  true},
+    {"GPIO35", 35, true,  true},
+    {"GPIO36", 36, true,  true},  // VP
+    {"GPIO39", 39, true,  true},  // VN
 };
 const int PIN_COUNT = sizeof(PINS) / sizeof(PINS[0]);
 uint8_t pinModes[PIN_COUNT];
@@ -241,6 +266,8 @@ int findPin(const String& name) {
 void applyGpioSet(const String& pinName, int mode, int value) {
     int idx = findPin(pinName);
     if (idx < 0) return;
+    // Input Only pins ไม่รองรับ OUTPUT และ INPUT_PULLUP
+    if (PINS[idx].inputOnly && mode != 0) return;
     pinModes[idx] = mode;
     uint8_t m = mode == 0 ? INPUT : mode == 1 ? OUTPUT : INPUT_PULLUP;
     pinMode(PINS[idx].gpio, m);
@@ -254,10 +281,11 @@ String buildGpioJson() {
                   ? analogRead(PINS[i].gpio) : digitalRead(PINS[i].gpio);
         if (i) j += ",";
         j += "{\"name\":\"" + String(PINS[i].name) + "\","
-             "\"gpio\":"   + String(PINS[i].gpio)  + ","
-             "\"analog\":"  + (PINS[i].analog ? "true" : "false") + ","
-             "\"mode\":"   + String(pinModes[i])   + ","
-             "\"value\":"  + String(val)            + "}";
+             "\"gpio\":"      + String(PINS[i].gpio)  + ","
+             "\"analog\":"    + (PINS[i].analog     ? "true" : "false") + ","
+             "\"inputOnly\":" + (PINS[i].inputOnly  ? "true" : "false") + ","
+             "\"mode\":"      + String(pinModes[i])   + ","
+             "\"value\":"     + String(val)            + "}";
     }
     return j + "]}";
 }
