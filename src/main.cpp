@@ -35,10 +35,10 @@ const PinDef PINS[] = {
     {"GPIO21", 21, false, false},
     {"GPIO22", 22, false, false},
     {"GPIO23", 23, false, false},
-    // Analog + Digital
-    {"GPIO25", 25, true,  false},
-    {"GPIO26", 26, true,  false},
-    {"GPIO27", 27, true,  false},
+    // Digital only (ADC2 — ใช้ analogRead ไม่ได้ขณะ WiFi ทำงาน)
+    {"GPIO25", 25, false, false},
+    {"GPIO26", 26, false, false},
+    {"GPIO27", 27, false, false},
     {"GPIO32", 32, true,  false},
     {"GPIO33", 33, true,  false},
     // Input Only (ADC)
@@ -553,7 +553,7 @@ void setup() {
         // มี config แล้ว → Normal mode
         connectWiFi();
         setupNormalServer();
-        tunnel.beginSSL(cfg.relayHost, 443, "/tunnel");
+        tunnel.begin(cfg.relayHost, 3000, "/tunnel"); // local: WS port 3000
         tunnel.onEvent(onTunnelEvent);
         tunnel.setReconnectInterval(5000);
         appState = STATE_NORMAL;
