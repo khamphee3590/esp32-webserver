@@ -98,13 +98,26 @@
     <section class="card gpio-card">
       <h2>
         GPIO Control
-        <span class="gpio-refresh-badge" id="gpio-countdown">โหลด...</span>
+        <div class="h2-right">
+          <span class="gpio-stats-text" id="gpio-stats"></span>
+          <span class="gpio-refresh-badge" id="gpio-countdown">โหลด...</span>
+        </div>
       </h2>
-      <div class="gpio-legend">
-        <span class="legend-dot dot-input"></span>INPUT
-        <span class="legend-dot dot-output"></span>OUTPUT
-        <span class="legend-dot dot-pullup"></span>PULLUP
+
+      <div class="gpio-toolbar">
+        <div class="filter-tabs" id="filter-tabs">
+          <button type="button" class="ftab active" onclick="setFilter('all')">ทั้งหมด</button>
+          <button type="button" class="ftab" onclick="setFilter('output')">OUTPUT</button>
+          <button type="button" class="ftab" onclick="setFilter('input')">INPUT</button>
+          <button type="button" class="ftab" onclick="setFilter('high')">HIGH ●</button>
+        </div>
+        <div class="gpio-legend">
+          <span class="legend-dot dot-input"></span>IN
+          <span class="legend-dot dot-output"></span>OUT
+          <span class="legend-dot dot-pullup"></span>PU
+        </div>
       </div>
+
       <div class="gpio-grid" id="gpio-grid">
         <div class="gpio-loading">กำลังโหลด GPIO...</div>
       </div>

@@ -1,10 +1,12 @@
 // ======= State =======
-let gpioState  = {};
-let gpioLabels = {};
-let deviceRole = 'owner'; // default owner สำหรับ local mode
-let countdownVal = 2;
+let gpioState    = {};
+let gpioOrder    = []; // ลำดับ pin จาก server
+let gpioLabels   = {};
+let deviceRole   = 'owner';
+let currentFilter = 'all';
+let countdownVal  = 2;
 
-const MODE_LABEL = ['INPUT', 'OUTPUT', 'PULLUP'];
+const MODE_LABEL  = ['INPUT', 'OUTPUT', 'PULLUP'];
 const isLocalMode = !window.location.pathname.startsWith('/d/');
 
 // ======= Role Init =======
@@ -18,23 +20,17 @@ async function initRole() {
 }
 
 function applyRoleUI(d = {}) {
-  const isOwner   = deviceRole === 'owner';
+  const isOwner    = deviceRole === 'owner';
   const canControl = deviceRole !== 'viewer';
 
-  // Navbar: device name
   const navName = document.getElementById('nav-devname');
   if (navName && d.name) navName.textContent = d.name;
 
-  // Navbar: settings button (editor + owner)
-  const navSettings = document.getElementById('nav-settings-btn');
-  if (navSettings) navSettings.classList.toggle('hidden', !canControl);
-
-  // Navbar: local badge vs user/logout (relay mode)
+  document.getElementById('nav-settings-btn')?.classList.toggle('hidden', !canControl);
   document.getElementById('nav-local-badge')?.classList.toggle('hidden', !isLocalMode);
   document.getElementById('nav-user')?.classList.toggle('hidden', isLocalMode);
   document.getElementById('nav-logout-btn')?.classList.toggle('hidden', isLocalMode);
 
-  // Settings modal pre-fill
   const nameInput = document.getElementById('s-devname');
   if (nameInput && d.name) nameInput.value = d.name;
   const pcodeEl = document.getElementById('s-pcode');
@@ -42,13 +38,9 @@ function applyRoleUI(d = {}) {
   const devidEl = document.getElementById('s-devid');
   if (devidEl) devidEl.textContent = d.device_id || '-';
 
-  // Save name + invite: owner เท่านั้น
-  const saveBtn = document.querySelector('.btn-save');
-  if (saveBtn) saveBtn.classList.toggle('hidden', !isOwner);
-  const invSec = document.getElementById('invite-section');
-  if (invSec) invSec.classList.toggle('hidden', !isOwner);
-  const usersTab = document.getElementById('tab-users-btn');
-  if (usersTab) usersTab.classList.toggle('hidden', !isOwner);
+  document.querySelector('.btn-save')?.classList.toggle('hidden', !isOwner);
+  document.getElementById('invite-section')?.classList.toggle('hidden', !isOwner);
+  document.getElementById('tab-users-btn')?.classList.toggle('hidden', !isOwner);
 }
 
 async function fetchNavUser() {
@@ -105,54 +97,67 @@ async function saveLabel(pin, label) {
   } catch { /* silent */ }
 }
 
-function editLabel(pin) {
-  const span = document.getElementById('lbl-' + pin);
-  if (!span) return;
-  const current = gpioLabels[pin] || '';
-  const input   = document.createElement('input');
-  input.type      = 'text';
-  input.value     = current;
-  input.className = 'label-input';
-  input.maxLength = 32;
-  span.replaceWith(input);
-  input.focus();
-  input.select();
-
-  const commit = () => {
-    const val = input.value.trim();
-    saveLabel(pin, val);
-    input.replaceWith(makeLabelSpan(pin, val));
-  };
-  const cancel = () => { input.replaceWith(makeLabelSpan(pin, current)); };
-
-  input.addEventListener('blur',    commit);
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter')  { e.preventDefault(); input.blur(); }
-    if (e.key === 'Escape') { input.removeEventListener('blur', commit); cancel(); }
-  });
+// ======= GPIO Filter =======
+function setFilter(f) {
+  currentFilter = f;
+  const tabs   = document.querySelectorAll('#filter-tabs .ftab');
+  const keys   = ['all', 'output', 'input', 'high'];
+  tabs.forEach((t, i) => t.classList.toggle('active', keys[i] === f));
+  applyFilter();
 }
 
-function makeLabelSpan(pin, label) {
-  const canEdit = deviceRole !== 'viewer';
-  const span    = document.createElement('span');
-  span.id        = 'lbl-' + pin;
-  span.className = label ? 'pin-label has-label' : 'pin-label';
-  span.textContent = label || (canEdit ? '+ ตั้งชื่อ' : '');
-  if (canEdit) {
-    span.title   = 'คลิกเพื่อแก้ไขชื่อ';
-    span.onclick = () => editLabel(pin);
+function getFilteredPins() {
+  const all = gpioOrder.map(n => gpioState[n]).filter(Boolean);
+  switch (currentFilter) {
+    case 'output': return all.filter(p => p.mode === 1);
+    case 'input':  return all.filter(p => p.mode !== 1);
+    case 'high':   return all.filter(p => p.mode === 1 && p.value === 1);
+    default:       return all;
   }
-  return span;
 }
 
-// ======= GPIO =======
+function applyFilter() {
+  const visible = new Set(getFilteredPins().map(p => p.name));
+  let shownCount = 0;
+
+  document.querySelectorAll('.pin-card').forEach(card => {
+    const show = visible.has(card.dataset.pin);
+    card.style.display = show ? '' : 'none';
+    if (show) shownCount++;
+  });
+
+  // Empty state
+  let empty = document.getElementById('gpio-empty-msg');
+  if (!empty) {
+    empty = document.createElement('div');
+    empty.id        = 'gpio-empty-msg';
+    empty.className = 'gpio-empty hidden';
+    empty.textContent = 'ไม่มีขาในโหมดนี้';
+    document.getElementById('gpio-grid').appendChild(empty);
+  }
+  empty.classList.toggle('hidden', shownCount > 0);
+}
+
+// ======= GPIO Stats =======
+function updateGpioStats() {
+  const pins     = Object.values(gpioState);
+  const outCount = pins.filter(p => p.mode === 1).length;
+  const hiCount  = pins.filter(p => p.mode === 1 && p.value === 1).length;
+  const el       = document.getElementById('gpio-stats');
+  if (!el) return;
+  el.textContent = outCount ? `${outCount} OUT · ${hiCount} HIGH` : '';
+}
+
+// ======= GPIO Fetch =======
 async function fetchGpio() {
   try {
-    const data = await fetch('api/gpio').then(r => r.json());
-    const isFirst = Object.keys(gpioState).length === 0;
+    const data   = await fetch('api/gpio').then(r => r.json());
+    const isFirst = gpioOrder.length === 0;
+    gpioOrder = data.pins.map(p => p.name);
     data.pins.forEach(p => { gpioState[p.name] = p; });
     if (isFirst) renderGpioGrid(data.pins);
     else         updateGpioValues(data.pins);
+    updateGpioStats();
   } catch { /* silent */ }
 }
 
@@ -164,40 +169,56 @@ async function setGpio(pin, mode, value) {
   });
   gpioState[pin].mode  = mode;
   gpioState[pin].value = value;
-  renderPinCard(document.querySelector(`[data-pin="${pin}"]`), gpioState[pin]);
+  const card = document.querySelector(`[data-pin="${pin}"]`);
+  if (card) renderPinCard(card, gpioState[pin]);
+  updateGpioStats();
+  applyFilter();
 }
 
+// ======= GPIO Render =======
 function renderGpioGrid(pins) {
   const grid = document.getElementById('gpio-grid');
   grid.innerHTML = '';
   pins.forEach(p => {
-    const card = document.createElement('div');
+    const card       = document.createElement('div');
     card.className   = 'pin-card';
     card.dataset.pin = p.name;
     renderPinCard(card, p);
     grid.appendChild(card);
   });
+  applyFilter();
 }
 
 function updateGpioValues(pins) {
   pins.forEach(p => {
-    const card = document.querySelector(`[data-pin="${p.name}"]`);
-    if (!card) return;
-    if (gpioState[p.name].value !== p.value) {
+    const prev = gpioState[p.name];
+    if (prev && (prev.value !== p.value || prev.mode !== p.mode)) {
       gpioState[p.name] = p;
-      renderPinCard(card, p);
+      const card = document.querySelector(`[data-pin="${p.name}"]`);
+      if (card) renderPinCard(card, p);
     }
   });
+  applyFilter();
 }
 
 function renderPinCard(card, p) {
   const label      = gpioLabels[p.name] || '';
   const canControl = deviceRole !== 'viewer';
+  const isHigh     = p.mode === 1 && p.value === 1;
+
+  card.className   = 'pin-card' + (isHigh ? ' pin-high' : '');
+  card.dataset.pin = p.name;
 
   card.innerHTML = `
     <div class="pin-header">
       <div class="pin-names">
-        <span class="pin-name">${p.name}</span>
+        <span class="pin-primary${canControl ? ' pin-editable' : ''}"
+              title="${canControl ? (label ? 'คลิกแก้ไขชื่อ' : 'คลิกตั้งชื่อ') : ''}">
+          ${label || p.name}
+        </span>
+        ${label
+          ? `<span class="pin-secondary">${p.name}</span>`
+          : `<span class="pin-label-hint">${canControl ? '+ ตั้งชื่อ' : ''}</span>`}
       </div>
       <span class="pin-gpio">GPIO${p.gpio}</span>
     </div>
@@ -206,7 +227,7 @@ function renderPinCard(card, p) {
         <button type="button"
           class="mode-btn ${p.mode===m ? 'active-mode-'+m : ''}"
           ${canControl ? `onclick="setGpio('${p.name}',${m},${p.mode===1?p.value:0})"` : 'disabled'}
-          title="${canControl ? MODE_LABEL[m] : 'Viewer ไม่มีสิทธิ์เปลี่ยน mode'}">
+          title="${canControl ? MODE_LABEL[m] : 'Viewer ไม่มีสิทธิ์'}">
           ${MODE_LABEL[m]}
         </button>`).join('')}
     </div>
@@ -214,7 +235,9 @@ function renderPinCard(card, p) {
       ${p.mode === 1 ? renderOutput(p, canControl) : renderInput(p)}
     </div>`;
 
-  card.querySelector('.pin-names').appendChild(makeLabelSpan(p.name, label));
+  if (canControl) {
+    card.querySelector('.pin-primary').addEventListener('click', () => editLabel(p.name));
+  }
 }
 
 function renderOutput(p, canControl = true) {
@@ -225,7 +248,6 @@ function renderOutput(p, canControl = true) {
         ${p.value ? 'HIGH' : 'LOW'}
       </button></div>`;
   }
-  // Viewer: แสดงเป็น indicator อ่านอย่างเดียว
   return `<div class="digital-dot ${p.value ? 'dot-high' : 'dot-low'}">${p.value ? 'HIGH' : 'LOW'}</div>`;
 }
 
@@ -240,13 +262,49 @@ function renderInput(p) {
   return `<div class="digital-dot ${p.value ? 'dot-high' : 'dot-low'}">${p.value ? 'HIGH' : 'LOW'}</div>`;
 }
 
+// ======= Label Inline Edit =======
+function editLabel(pin) {
+  if (deviceRole === 'viewer') return;
+  const card    = document.querySelector(`[data-pin="${pin}"]`);
+  if (!card) return;
+  const primary = card.querySelector('.pin-primary');
+  if (!primary || primary.tagName === 'INPUT') return;
+
+  const current = gpioLabels[pin] || '';
+  const input   = document.createElement('input');
+  input.type        = 'text';
+  input.value       = current;
+  input.className   = 'pin-primary label-editing';
+  input.maxLength   = 32;
+  input.placeholder = pin;
+
+  primary.replaceWith(input);
+  input.focus();
+  input.select();
+
+  const commit = () => {
+    const val = input.value.trim();
+    saveLabel(pin, val);
+    setTimeout(() => renderPinCard(card, gpioState[pin]), 0);
+  };
+  const cancel = () => {
+    setTimeout(() => renderPinCard(card, gpioState[pin]), 0);
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter')  { e.preventDefault(); input.removeEventListener('blur', commit); commit(); }
+    if (e.key === 'Escape') { input.removeEventListener('blur', commit); cancel(); }
+  });
+}
+
 // ======= Countdown Badge =======
 function startCountdown() {
   countdownVal = 2;
   const badge = document.getElementById('gpio-countdown');
   const tick = setInterval(() => {
     countdownVal--;
-    badge.textContent = countdownVal > 0 ? `รีเฟรชใน ${countdownVal}s` : 'กำลังโหลด...';
+    badge.textContent = countdownVal > 0 ? `${countdownVal}s` : '...';
     if (countdownVal <= 0) clearInterval(tick);
   }, 1000);
 }
@@ -256,11 +314,9 @@ function openSettings() {
   document.getElementById('settings-overlay').classList.add('show');
   loadDeviceInfo();
 }
-
 function closeSettings() {
   document.getElementById('settings-overlay').classList.remove('show');
 }
-
 function switchTab(tab) {
   document.getElementById('tab-device').classList.toggle('hidden', tab !== 'device');
   document.getElementById('tab-users').classList.toggle('hidden',  tab !== 'users');
@@ -268,7 +324,6 @@ function switchTab(tab) {
   document.getElementById('tab-users-btn').classList.toggle('active',  tab === 'users');
   if (tab === 'users') loadDeviceUsers();
 }
-
 function showSettingsMsg(text, type) {
   const el = document.getElementById('settings-msg');
   el.textContent = text;
@@ -289,9 +344,8 @@ async function saveName() {
   if (!name) return;
   try {
     await fetch('api/device/info', {
-      method:  'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ name }),
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body:   JSON.stringify({ name }),
     });
     const navName = document.getElementById('nav-devname');
     if (navName) navName.textContent = name;
@@ -312,9 +366,7 @@ async function loadDeviceUsers() {
         </div>
         ${deviceRole === 'owner' ? `<button type="button" class="btn-remove" onclick="removeUser(${u.userId})">ลบ</button>` : ''}
       </div>`).join('');
-  } catch {
-    el.innerHTML = '<div class="loading-text">ไม่สามารถโหลดได้ (local mode)</div>';
-  }
+  } catch { el.innerHTML = '<div class="loading-text">ไม่สามารถโหลดได้ (local mode)</div>'; }
 }
 
 async function inviteUser() {
@@ -324,19 +376,14 @@ async function inviteUser() {
   if (!email) { msg.textContent = 'กรุณาใส่อีเมล'; msg.className = 'settings-msg msg-err'; return; }
   try {
     const d = await fetch('api/device/users', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, role }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body:   JSON.stringify({ email, role }),
     }).then(r => r.json());
     if (d.ok) {
-      msg.textContent = 'เชิญสำเร็จ!';
-      msg.className   = 'settings-msg msg-ok';
+      msg.textContent = 'เชิญสำเร็จ!'; msg.className = 'settings-msg msg-ok';
       document.getElementById('s-email').value = '';
       loadDeviceUsers();
-    } else {
-      msg.textContent = d.error || 'เกิดข้อผิดพลาด';
-      msg.className   = 'settings-msg msg-err';
-    }
+    } else { msg.textContent = d.error || 'เกิดข้อผิดพลาด'; msg.className = 'settings-msg msg-err'; }
   } catch { msg.textContent = 'เชื่อมต่อไม่ได้'; msg.className = 'settings-msg msg-err'; }
 }
 
@@ -353,34 +400,24 @@ function initOTA() {
   document.getElementById('ota-local').classList.toggle('hidden', !isLocalMode);
   document.getElementById('ota-relay').classList.toggle('hidden',  isLocalMode);
 }
-
 function otaFileChange(type) {
   const input = document.getElementById(`ota-${type}-input`);
   const fname = document.getElementById(`ota-${type}-fname`);
   const btn   = document.getElementById(`ota-${type}-btn`);
-  if (input.files[0]) {
-    fname.textContent = input.files[0].name;
-    btn.disabled = false;
-  }
+  if (input.files[0]) { fname.textContent = input.files[0].name; btn.disabled = false; }
 }
-
 function uploadOTA(type) {
   const file = document.getElementById(`ota-${type}-input`).files[0];
   if (!file) return;
-
-  const fill   = document.getElementById(`ota-${type}-fill`);
-  const btn    = document.getElementById(`ota-${type}-btn`);
-
-  btn.disabled = true;
+  const fill = document.getElementById(`ota-${type}-fill`);
+  const btn  = document.getElementById(`ota-${type}-btn`);
+  btn.disabled     = true;
   fill.style.width = '0%';
   fill.className   = 'ota-progress-fill';
   setOtaStatus(type, 'กำลังอัพโหลด...', 'inf');
-
   const formData = new FormData();
   formData.append('file', file);
-
   const xhr = new XMLHttpRequest();
-
   xhr.upload.addEventListener('progress', e => {
     if (e.lengthComputable) {
       const pct = Math.round(e.loaded / e.total * 100);
@@ -388,38 +425,24 @@ function uploadOTA(type) {
       setOtaStatus(type, `กำลังส่ง... ${pct}%`, 'inf');
     }
   });
-
   xhr.addEventListener('load', () => {
     if (xhr.responseText === 'OK') {
-      fill.style.width = '100%';
-      fill.classList.add('fill-ok');
+      fill.style.width = '100%'; fill.classList.add('fill-ok');
       setOtaStatus(type, 'อัพโหลดสำเร็จ! ESP32 กำลัง restart — หน้านี้จะโหลดใหม่ใน 12 วินาที', 'ok');
       setTimeout(() => location.reload(), 12000);
-    } else {
-      fill.classList.add('fill-err');
-      setOtaStatus(type, 'ล้มเหลว: ' + xhr.responseText, 'err');
-      btn.disabled = false;
-    }
+    } else { fill.classList.add('fill-err'); setOtaStatus(type, 'ล้มเหลว: ' + xhr.responseText, 'err'); btn.disabled = false; }
   });
-
-  xhr.addEventListener('error', () => {
-    setOtaStatus(type, 'เชื่อมต่อไม่ได้', 'err');
-    btn.disabled = false;
-  });
-
+  xhr.addEventListener('error', () => { setOtaStatus(type, 'เชื่อมต่อไม่ได้', 'err'); btn.disabled = false; });
   xhr.open('POST', `ota?type=${type}`);
   xhr.send(formData);
 }
-
 function setOtaStatus(type, text, cls) {
   const el = document.getElementById(`ota-${type}-status`);
-  el.textContent = text;
-  el.className   = 'ota-status ota-' + cls;
+  el.textContent = text; el.className = 'ota-status ota-' + cls;
 }
-
 function updateOtaLink(ip) {
   if (isLocalMode) return;
-  const url  = `http://${ip}/`;
+  const url = `http://${ip}/`;
   const link = document.getElementById('ota-local-link');
   if (link) { link.textContent = url; link.href = url; }
 }
@@ -428,7 +451,6 @@ function updateOtaLink(ip) {
 initOTA();
 fetchStatus();
 fetchNavUser();
-// โหลด role ก่อนเสมอ เพื่อให้ GPIO grid แสดงสิทธิ์ถูกต้องตั้งแต่ต้น
 initRole().then(() => fetchGpioLabels().then(fetchGpio));
 setInterval(fetchStatus, 10000);
 setInterval(() => { fetchGpio(); startCountdown(); }, 2000);
