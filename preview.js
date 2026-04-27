@@ -96,33 +96,49 @@ function dashboardPage() {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard — ESP32 Preview</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
 .navbar{background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;height:56px;
   display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:12px}
-.nav-brand{display:flex;align-items:center;gap:6px;text-decoration:none}
+.nav-brand{display:flex;align-items:center;gap:6px;text-decoration:none;flex-shrink:0}
 .nav-logo{color:#3b82f6;font-size:1.1rem}.nav-title{color:#f1f5f9;font-weight:700;font-size:.95rem}
 .nav-right{display:flex;align-items:center;gap:10px}
 .nav-user{font-size:.78rem;color:#64748b}
 .nav-badge{font-size:.7rem;color:#475569;background:#0f172a;border:1px solid #334155;padding:2px 8px;border-radius:99px}
 main{flex:1;padding:28px;max-width:680px;margin:0 auto;width:100%}
 .info-box{background:#172554;border:1px solid #1d4ed8;border-radius:10px;
-  padding:14px 18px;margin-bottom:20px;font-size:.82rem;color:#93c5fd;line-height:1.7}
+  padding:14px 18px;margin-bottom:16px;font-size:.82rem;color:#93c5fd;line-height:1.7}
 .info-box code{background:#0f172a;padding:2px 7px;border-radius:4px;font-size:.8rem}
-.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .page-title{font-size:.85rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
-.device-card{display:flex;align-items:center;gap:16px;background:#1e293b;
-  border:1px solid #334155;border-radius:12px;padding:16px 20px;text-decoration:none;
-  color:inherit;margin-bottom:12px;transition:border-color .15s,transform .1s}
-.device-card:hover{border-color:#3b82f6;transform:translateX(3px)}
-.dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e66;flex-shrink:0}
-.dev-info{flex:1}
-.dev-name{font-weight:600;font-size:1rem;color:#f1f5f9}
-.dev-id{font-family:monospace;font-size:.72rem;color:#475569;margin-top:2px}
-.dev-on{font-size:.75rem;color:#22c55e;margin-top:3px}
+.btn-pair{background:#3b82f6;color:#fff;border:none;padding:9px 20px;border-radius:8px;font-size:.85rem;cursor:pointer}
+.summary-bar{display:flex;align-items:center;gap:16px;margin-bottom:18px;
+  padding:12px 16px;background:#1e293b;border:1px solid #334155;border-radius:10px}
+.summary-stat{display:flex;align-items:center;gap:7px;font-size:.82rem;color:#94a3b8}
+.summary-count{font-weight:700;font-size:1rem}
+.c-on{color:#22c55e}.c-off{color:#475569}
+.summary-sep{color:#334155;font-size:1rem}
+.summary-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sd-on{background:#22c55e}.sd-off{background:#475569}
+@keyframes online-pulse{0%,100%{box-shadow:0 0 0 0 #22c55e55}60%{box-shadow:0 0 0 5px #22c55e00}}
+.device-card{display:flex;align-items:center;gap:14px;background:#1e293b;
+  border:1px solid #334155;border-radius:12px;padding:16px 18px;
+  cursor:pointer;margin-bottom:10px;transition:border-color .15s,background .15s}
+.device-card:hover{border-color:#3b82f6;background:#1e3a5f22}
+.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot-on{background:#22c55e;animation:online-pulse 2.5s infinite}
+.dev-info{flex:1;min-width:0}
+.dev-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.dev-name{font-weight:600;font-size:.95rem;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.role-badge{font-size:.62rem;padding:2px 7px;border-radius:99px;font-weight:600;flex-shrink:0;background:#172554;color:#93c5fd}
+.dev-id{font-family:monospace;font-size:.7rem;color:#475569}
+.dev-status{font-size:.75rem;margin-top:4px;color:#22c55e}
+.dev-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .arrow{color:#475569;font-size:1.1rem;transition:color .15s}
 .device-card:hover .arrow{color:#3b82f6}
 footer{text-align:center;padding:16px;color:#334155;font-size:.75rem;border-top:1px solid #1e293b}
+@media(max-width:768px){.nav-user{display:none}}
+@media(max-width:480px){.navbar{padding:0 12px;height:52px}.nav-title{display:none}main{padding:12px}}
 </style></head>
 <body>
 <nav class="navbar">
@@ -138,21 +154,37 @@ footer{text-align:center;padding:16px;color:#334155;font-size:.75rem;border-top:
 <main>
   <div class="info-box">
     🛠 <strong>Preview Mode</strong> — Auth bypass อัตโนมัติ<br>
-    กดที่การ์ดด้านล่างเพื่อเข้าหน้าควบคุม GPIO<br>
-    หรือเข้าตรงที่ <code>http://localhost:${PORT}/d/${MOCK_DEVICE_ID}/</code>
+    กดที่การ์ดด้านล่าง หรือเข้าตรงที่ <code>http://localhost:${PORT}/d/${MOCK_DEVICE_ID}/</code>
   </div>
   <div class="page-header">
-    <span class="page-title">อุปกรณ์จำลอง (1)</span>
+    <span class="page-title">อุปกรณ์จำลอง</span>
+    <button class="btn-pair" disabled>+ เพิ่มอุปกรณ์</button>
   </div>
-  <a class="device-card" href="/d/${MOCK_DEVICE_ID}/">
-    <span class="dot"></span>
-    <div class="dev-info">
-      <div class="dev-name">Mock ESP32 Device</div>
-      <div class="dev-id">${MOCK_DEVICE_ID}</div>
-      <div class="dev-on">● Online (จำลอง)</div>
+  <div class="summary-bar">
+    <div class="summary-stat">
+      <span class="summary-dot sd-on"></span>
+      <span class="summary-count c-on">1</span><span>Online</span>
     </div>
-    <span class="arrow">›</span>
-  </a>
+    <span class="summary-sep">·</span>
+    <div class="summary-stat">
+      <span class="summary-dot sd-off"></span>
+      <span class="summary-count c-off">0</span><span>Offline</span>
+    </div>
+  </div>
+  <div class="device-card" onclick="location.href='/d/${MOCK_DEVICE_ID}/'">
+    <span class="status-dot dot-on"></span>
+    <div class="dev-info">
+      <div class="dev-top">
+        <span class="dev-name">Mock ESP32 Device</span>
+        <span class="role-badge">owner</span>
+      </div>
+      <div class="dev-id">${MOCK_DEVICE_ID}</div>
+      <div class="dev-status">● Online (จำลอง)</div>
+    </div>
+    <div class="dev-actions">
+      <span class="arrow">›</span>
+    </div>
+  </div>
 </main>
 <footer>ESP32 Preview Server — port ${PORT}</footer>
 </body></html>`;
