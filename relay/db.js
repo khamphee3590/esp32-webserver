@@ -92,6 +92,36 @@ function unpairDevice(userId, deviceId) {
     persist(db => { db.device_users = db.device_users.filter(r => !(r.user_id === userId && r.device_id === deviceId)); });
 }
 
+// ======= Device Management =======
+function getDeviceById(deviceId) {
+    return _db.devices.find(d => d.device_id === deviceId) || null;
+}
+
+function updateDeviceName(deviceId, name) {
+    persist(db => {
+        const d = db.devices.find(d => d.device_id === deviceId);
+        if (d) d.name = name;
+    });
+}
+
+function getDeviceUsers(deviceId) {
+    return _db.device_users
+        .filter(r => r.device_id === deviceId)
+        .map(r => {
+            const u = _db.users.find(u => u.id === r.user_id);
+            return u ? { userId: u.id, email: u.email, role: r.role, joined_at: r.joined_at } : null;
+        })
+        .filter(Boolean);
+}
+
+function inviteUserByEmail(deviceId, email, role) {
+    const user = getUserByEmail(email);
+    if (!user) return { ok: false, error: 'ไม่พบผู้ใช้ที่มีอีเมลนี้' };
+    if (getDeviceAccess(user.id, deviceId)) return { ok: false, error: 'ผู้ใช้นี้มีสิทธิ์เข้าถึงอยู่แล้ว' };
+    pairDevice(user.id, deviceId, role);
+    return { ok: true };
+}
+
 // ======= GPIO Labels =======
 function getGpioLabels(deviceId) {
     return _db.gpio_labels.filter(l => l.device_id === deviceId);
@@ -109,6 +139,7 @@ module.exports = {
     getUserByEmail, getUserById, getUserByResetToken,
     createUser, setResetToken, updatePassword,
     upsertDevice, getDeviceByPairingCode, touchDevice,
+    getDeviceById, updateDeviceName, getDeviceUsers, inviteUserByEmail,
     getDeviceAccess, getDevicesByUser, pairDevice, unpairDevice,
     getGpioLabels, setGpioLabel,
 };

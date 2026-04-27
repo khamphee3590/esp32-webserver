@@ -288,9 +288,64 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
             ? res.status(403).send(`<h1 style="font-family:sans-serif;color:#ef4444;padding:40px">403 — ไม่มีสิทธิ์เข้าถึงอุปกรณ์นี้</h1>`)
             : res.status(403).json({ error: 'Access denied' });
     }
+    req.deviceRole = access.role;
     next();
 }, (req, res) => {
     const { deviceId } = req.params;
+    const subPath = req.path;
+    const isOwner = req.deviceRole === 'owner';
+
+    // ======= Relay-managed routes (ไม่ forward ไป ESP32) =======
+
+    // GPIO Labels
+    if (subPath === '/api/gpio/labels') {
+        if (req.method === 'GET')
+            return res.json(db.getGpioLabels(deviceId));
+        if (req.method === 'PUT') {
+            const { pin, label } = req.body || {};
+            if (!pin) return res.status(400).json({ error: 'pin required' });
+            db.setGpioLabel(deviceId, pin, label ?? '');
+            return res.json({ ok: true });
+        }
+    }
+
+    // Device Info
+    if (subPath === '/api/device/info') {
+        if (req.method === 'GET') {
+            const d = db.getDeviceById(deviceId);
+            return res.json({ ...d, role: req.deviceRole });
+        }
+        if (req.method === 'PUT' && isOwner) {
+            const { name } = req.body || {};
+            if (name?.trim()) db.updateDeviceName(deviceId, name.trim());
+            return res.json({ ok: true });
+        }
+    }
+
+    // User Management (owner only)
+    if (subPath === '/api/device/users') {
+        if (!isOwner) return res.status(403).json({ error: 'Owner only' });
+        if (req.method === 'GET')
+            return res.json(db.getDeviceUsers(deviceId));
+        if (req.method === 'POST') {
+            const { email, role } = req.body || {};
+            if (!email) return res.status(400).json({ error: 'email required' });
+            const result = db.inviteUserByEmail(deviceId, email, role || 'editor');
+            return result.ok ? res.json({ ok: true }) : res.status(400).json({ error: result.error });
+        }
+    }
+
+    // Remove user (owner only, ไม่ให้ลบตัวเอง)
+    const removeMatch = subPath.match(/^\/api\/device\/users\/(\d+)$/);
+    if (removeMatch && req.method === 'DELETE') {
+        if (!isOwner) return res.status(403).json({ error: 'Owner only' });
+        const targetId = Number(removeMatch[1]);
+        if (targetId === req.user.userId) return res.status(400).json({ error: 'ไม่สามารถลบตัวเองได้' });
+        db.unpairDevice(targetId, deviceId);
+        return res.json({ ok: true });
+    }
+
+    // ======= Forward ไป ESP32 =======
     const ws = devices.get(deviceId);
 
     if (!ws || ws.readyState !== WebSocket.OPEN)

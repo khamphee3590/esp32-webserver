@@ -225,24 +225,32 @@ http.createServer(async (req, res) => {
     console.log(`Pairing code จำลอง: 123456`);
 });
 
+// ======= Mock Relay DB =======
+const mockLabels  = {}; // pin → label
+const mockDevName = { name: 'Mock ESP32 Device' };
+const mockUsers   = [
+    { userId: 1, email: 'dev@preview.local', role: 'owner',  joined_at: Date.now() },
+    { userId: 2, email: 'editor@example.com', role: 'editor', joined_at: Date.now() },
+];
+
 // ======= Device Request Handler =======
 async function handleDevice(req, res, subPath) {
     const method = req.method;
 
+    // --- ESP32 APIs (forwarded in production) ---
     if (subPath === '/api/status') {
         return json(res, {
-            status: 'ok',
-            ip:     '192.168.1.100',
-            rssi:   -55,
-            uptime: Math.floor(Date.now() / 1000 % 86400),
-            name:   'Mock ESP32 Device',
+            status:   'ok',
+            ip:       '192.168.1.100',
+            rssi:     -55,
+            uptime:   Math.floor(Date.now() / 1000 % 86400),
+            name:     mockDevName.name,
             deviceId: MOCK_DEVICE_ID,
         });
     }
 
-    if (subPath === '/api/gpio' && method === 'GET') {
+    if (subPath === '/api/gpio' && method === 'GET')
         return json(res, { pins: PINS.map(p => ({ ...gpioState[p.name] })) });
-    }
 
     if (subPath === '/api/gpio/set' && method === 'POST') {
         const body = JSON.parse(await readBody(req) || '{}');
@@ -253,7 +261,46 @@ async function handleDevice(req, res, subPath) {
         return json(res, { ok: true });
     }
 
-    // Static files from data/
+    // --- Relay-managed APIs (intercepted in production) ---
+    if (subPath === '/api/gpio/labels') {
+        if (method === 'GET')
+            return json(res, Object.entries(mockLabels).map(([pin_name, label]) => ({ device_id: MOCK_DEVICE_ID, pin_name, label })));
+        if (method === 'PUT') {
+            const body = JSON.parse(await readBody(req) || '{}');
+            if (body.pin) mockLabels[body.pin] = body.label ?? '';
+            return json(res, { ok: true });
+        }
+    }
+
+    if (subPath === '/api/device/info') {
+        if (method === 'GET')
+            return json(res, { device_id: MOCK_DEVICE_ID, name: mockDevName.name, pairing_code: '123456', role: 'owner' });
+        if (method === 'PUT') {
+            const body = JSON.parse(await readBody(req) || '{}');
+            if (body.name) mockDevName.name = body.name;
+            return json(res, { ok: true });
+        }
+    }
+
+    if (subPath === '/api/device/users') {
+        if (method === 'GET')  return json(res, mockUsers);
+        if (method === 'POST') {
+            const body = JSON.parse(await readBody(req) || '{}');
+            if (!body.email) return json(res, { error: 'email required' }, 400);
+            mockUsers.push({ userId: Date.now(), email: body.email, role: body.role || 'editor', joined_at: Date.now() });
+            return json(res, { ok: true });
+        }
+    }
+
+    const removeMatch = subPath.match(/^\/api\/device\/users\/(\d+)$/);
+    if (removeMatch && method === 'DELETE') {
+        const id = Number(removeMatch[1]);
+        const idx = mockUsers.findIndex(u => u.userId === id);
+        if (idx >= 0) mockUsers.splice(idx, 1);
+        return json(res, { ok: true });
+    }
+
+    // --- Static files from data/ ---
     const filePath = path.join(DATA_DIR, subPath === '/' ? 'index.html' : subPath);
     serveFile(res, filePath);
 }

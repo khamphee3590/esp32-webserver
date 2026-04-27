@@ -8,8 +8,11 @@
 </head>
 <body>
   <header>
-    <h1>Arduino Nano ESP32</h1>
-    <p>Web Server Dashboard</p>
+    <div>
+      <h1>Arduino Nano ESP32</h1>
+      <p id="dev-subtitle">Web Server Dashboard</p>
+    </div>
+    <button type="button" class="btn-settings" onclick="openSettings()">⚙ ตั้งค่า</button>
   </header>
 
   <main>
@@ -33,7 +36,7 @@
           <span class="value status-ok" id="status">กำลังโหลด...</span>
         </div>
       </div>
-      <button onclick="fetchStatus()">รีเฟรช</button>
+      <button type="button" onclick="fetchStatus()">รีเฟรช</button>
     </section>
 
     <section class="card gpio-card">
@@ -51,6 +54,63 @@
       </div>
     </section>
   </main>
+
+  <!-- Settings Modal -->
+  <div class="overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+    <div class="settings-modal">
+      <div class="settings-header">
+        <h3>ตั้งค่าอุปกรณ์</h3>
+        <button type="button" class="btn-close" onclick="closeSettings()">✕</button>
+      </div>
+
+      <div class="settings-tabs">
+        <button type="button" class="tab-btn active" id="tab-device-btn" onclick="switchTab('device')">อุปกรณ์</button>
+        <button type="button" class="tab-btn" id="tab-users-btn" onclick="switchTab('users')">ผู้ใช้</button>
+      </div>
+
+      <!-- Device Tab -->
+      <div class="tab-pane" id="tab-device">
+        <div class="settings-group">
+          <label class="settings-label">ชื่ออุปกรณ์</label>
+          <div class="input-row">
+            <input type="text" id="s-devname" placeholder="ชื่ออุปกรณ์" maxlength="63" />
+            <button type="button" class="btn-save" onclick="saveName()">บันทึก</button>
+          </div>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Pairing Code</label>
+          <div class="pcode-display" id="s-pcode">------</div>
+          <p class="settings-hint">ใช้รหัสนี้เพื่อผูกอุปกรณ์กับบัญชีใหม่</p>
+        </div>
+        <div class="settings-group">
+          <label class="settings-label">Device ID</label>
+          <div class="mono-text" id="s-devid">-</div>
+        </div>
+      </div>
+
+      <!-- Users Tab -->
+      <div class="tab-pane hidden" id="tab-users">
+        <div class="settings-group">
+          <label class="settings-label">ผู้ใช้ที่มีสิทธิ์เข้าถึง</label>
+          <div id="user-list"><div class="loading-text">กำลังโหลด...</div></div>
+        </div>
+        <div class="settings-group" id="invite-section">
+          <label class="settings-label">เชิญผู้ใช้ใหม่</label>
+          <div class="input-row">
+            <input type="email" id="s-email" placeholder="email@example.com" />
+            <select id="s-role" title="บทบาทของผู้ใช้">
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+          <button type="button" class="btn-save btn-full" onclick="inviteUser()">เชิญ</button>
+          <div id="invite-msg" class="settings-msg"></div>
+        </div>
+      </div>
+
+      <div id="settings-msg" class="settings-msg"></div>
+    </div>
+  </div>
 
   <footer>
     <p>Arduino Nano ESP32 &mdash; PlatformIO + ESPAsyncWebServer</p>
