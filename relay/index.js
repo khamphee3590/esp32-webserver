@@ -124,10 +124,14 @@ input:focus{border-color:#3b82f6}
 
 footer{text-align:center;padding:20px;color:#334155;font-size:.75rem;border-top:1px solid #1e293b}
 
+@media(max-width:768px){.nav-user{display:none}}
 @media(max-width:480px){
-  .navbar{padding:0 16px}
-  .nav-user{display:none}
-  main{padding:16px}
+  .navbar{padding:0 12px;height:52px}
+  .nav-title{display:none}
+  main{padding:12px}
+  .device-card{padding:14px 16px}
+  .modal{border-radius:16px 16px 0 0;max-width:100%}
+  .overlay{align-items:flex-end;padding:0;padding-top:20px}
 }
 </style></head>
 <body>
