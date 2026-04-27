@@ -226,88 +226,7 @@ footer{text-align:center;padding:20px;color:#334155;font-size:.75rem;border-top:
 </div>
 
 <footer>ESP32 Relay</footer>
-<script>
-function showMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg-box '+(c?'msg-'+c:'');}
-function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('pcode').focus();}
-function closeModal(){document.getElementById('modal').classList.remove('show');showMsg('','');document.getElementById('pcode').value='';}
-document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
-function logout(){fetch('/api/auth/logout',{method:'POST'}).then(function(){location.href='/login';});}
-
-function relTime(ts){
-  if(!ts)return'ไม่ทราบ';
-  var s=Math.floor((Date.now()-ts)/1000);
-  if(s<60)return'เมื่อสักครู่';
-  if(s<3600)return Math.floor(s/60)+' นาทีที่แล้ว';
-  if(s<86400)return Math.floor(s/3600)+' ชั่วโมงที่แล้ว';
-  return Math.floor(s/86400)+' วันที่แล้ว';
-}
-
-function renderDevices(list){
-  var el=document.getElementById('device-list');
-  var bar=document.getElementById('summary-bar');
-  if(!list.length){
-    bar.style.display='none';
-    el.innerHTML='<div class="empty"><div class="empty-icon">📡</div>'
-      +'<div class="empty-title">ยังไม่มีอุปกรณ์</div>'
-      +'<div class="empty-desc">กด <strong>+ เพิ่มอุปกรณ์</strong> แล้วใส่ Pairing Code<br>จากหน้า Setup ของ ESP32</div></div>';
-    return;
-  }
-  var online=list.filter(function(d){return d.online;}).length;
-  document.getElementById('sum-online').textContent=online;
-  document.getElementById('sum-offline').textContent=list.length-online;
-  bar.style.display='flex';
-
-  el.innerHTML=list.map(function(d){
-    var on=d.online;
-    var role=d.role||'viewer';
-    var status=on?'● Online':'○ Last seen '+relTime(d.last_seen);
-    return '<div class="device-card" onclick="location.href=\'/d/'+d.device_id+'/\'">'
-      +'<span class="status-dot '+(on?'dot-on':'dot-off')+'"></span>'
-      +'<div class="dev-info">'
-        +'<div class="dev-top">'
-          +'<span class="dev-name">'+d.name+'</span>'
-          +'<span class="role-badge role-'+role+'">'+role+'</span>'
-        +'</div>'
-        +'<div class="dev-id">'+d.device_id+'</div>'
-        +'<div class="dev-status '+(on?'on':'off')+'">'+status+'</div>'
-      +'</div>'
-      +'<div class="dev-actions">'
-        +'<button class="btn-del" onclick="event.stopPropagation();delDevice(\''+d.device_id+'\')" title="ลบออกจาก dashboard">✕</button>'
-        +'<span class="arrow">›</span>'
-      +'</div>'
-    +'</div>';
-  }).join('');
-}
-
-function loadDevices(){
-  fetch('/api/devices').then(function(r){
-    if(r.status===401){location.href='/login';return null;}
-    return r.json();
-  }).then(function(d){if(d)renderDevices(d);});
-}
-
-function delDevice(id){
-  if(!confirm('ลบอุปกรณ์นี้ออกจาก dashboard?\\nสามารถผูกใหม่ได้โดยใช้ Pairing Code'))return;
-  fetch('/api/devices/'+id,{method:'DELETE'})
-    .then(function(){loadDevices();});
-}
-
-function pair(){
-  var code=document.getElementById('pcode').value.trim();
-  if(!/^\d{6}$/.test(code)){showMsg('Pairing Code ต้องเป็นตัวเลข 6 หลัก','err');return;}
-  showMsg('กำลังผูกอุปกรณ์...','inf');
-  fetch('/api/devices/pair',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({pairingCode:code})})
-  .then(function(r){return r.json();}).then(function(d){
-    if(d.ok){showMsg('ผูกอุปกรณ์สำเร็จ!','ok');loadDevices();setTimeout(closeModal,1500);}
-    else showMsg(d.error||'เกิดข้อผิดพลาด','err');
-  }).catch(function(){showMsg('เชื่อมต่อไม่ได้','err');});
-}
-
-document.getElementById('pcode').addEventListener('keydown',function(e){if(e.key==='Enter')pair();});
-loadDevices();
-setInterval(loadDevices,10000);
-</script>
+<script src="/dash.js"></script>
 </body></html>`;
 }
 
@@ -353,6 +272,75 @@ wss.on('connection', (ws, req) => {
 });
 
 // ======= HTTP Routes =======
+
+// Dashboard JS (public — เป็นแค่ฟังก์ชัน ไม่มีข้อมูลส่วนตัว)
+const DASH_JS = `
+function showMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg-box '+(c?'msg-'+c:'');}
+function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('pcode').focus();}
+function closeModal(){document.getElementById('modal').classList.remove('show');showMsg('','');document.getElementById('pcode').value='';}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+function logout(){fetch('/api/auth/logout',{method:'POST'}).then(function(){location.href='/login';});}
+function relTime(ts){
+  if(!ts)return'ไม่ทราบ';
+  var s=Math.floor((Date.now()-ts)/1000);
+  if(s<60)return'เมื่อสักครู่';
+  if(s<3600)return Math.floor(s/60)+' นาทีที่แล้ว';
+  if(s<86400)return Math.floor(s/3600)+' ชั่วโมงที่แล้ว';
+  return Math.floor(s/86400)+' วันที่แล้ว';
+}
+function renderDevices(list){
+  var el=document.getElementById('device-list');
+  var bar=document.getElementById('summary-bar');
+  if(!list.length){
+    bar.style.display='none';
+    el.innerHTML='<div class="empty"><div class="empty-icon">📡</div><div class="empty-title">ยังไม่มีอุปกรณ์</div><div class="empty-desc">กด <strong>+ เพิ่มอุปกรณ์</strong> แล้วใส่ Pairing Code</div></div>';
+    return;
+  }
+  var online=list.filter(function(d){return d.online;}).length;
+  document.getElementById('sum-online').textContent=online;
+  document.getElementById('sum-offline').textContent=list.length-online;
+  bar.style.display='flex';
+  el.innerHTML=list.map(function(d){
+    var on=d.online;
+    var role=d.role||'viewer';
+    var status=on?'● Online':'○ Last seen '+relTime(d.last_seen);
+    return '<div class="device-card" onclick="location.href=\\'/d/'+d.device_id+'/\\'">'
+      +'<span class="status-dot '+(on?'dot-on':'dot-off')+'"></span>'
+      +'<div class="dev-info"><div class="dev-top"><span class="dev-name">'+d.name+'</span>'
+      +'<span class="role-badge role-'+role+'">'+role+'</span></div>'
+      +'<div class="dev-id">'+d.device_id+'</div>'
+      +'<div class="dev-status '+(on?'on':'off')+'">'+status+'</div></div>'
+      +'<div class="dev-actions">'
+      +'<button class="btn-del" onclick="event.stopPropagation();delDevice(\\''+d.device_id+'\\')" title="ลบ">✕</button>'
+      +'<span class="arrow">›</span></div></div>';
+  }).join('');
+}
+function loadDevices(){
+  fetch('/api/devices').then(function(r){
+    if(r.status===401){location.href='/login';return null;}
+    return r.json();
+  }).then(function(d){if(d)renderDevices(d);});
+}
+function delDevice(id){
+  if(!confirm('ลบอุปกรณ์นี้ออกจาก dashboard?'))return;
+  fetch('/api/devices/'+id,{method:'DELETE'}).then(function(){loadDevices();});
+}
+function pair(){
+  var code=document.getElementById('pcode').value.trim();
+  if(!/^\\d{6}$/.test(code)){showMsg('Pairing Code ต้องเป็นตัวเลข 6 หลัก','err');return;}
+  showMsg('กำลังผูกอุปกรณ์...','inf');
+  fetch('/api/devices/pair',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pairingCode:code})})
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.ok){showMsg('ผูกอุปกรณ์สำเร็จ!','ok');loadDevices();setTimeout(closeModal,1500);}
+    else showMsg(d.error||'เกิดข้อผิดพลาด','err');
+  }).catch(function(){showMsg('เชื่อมต่อไม่ได้','err');});
+}
+document.getElementById('pcode').addEventListener('keydown',function(e){if(e.key==='Enter')pair();});
+loadDevices();
+setInterval(loadDevices,10000);
+`;
+
+app.get('/dash.js', (req, res) => res.type('application/javascript').send(DASH_JS));
 
 // Dashboard (ต้อง login)
 app.get('/', authRequired, (req, res) => res.send(dashboardPage(req.user)));
