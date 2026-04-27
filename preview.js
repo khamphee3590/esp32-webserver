@@ -95,52 +95,63 @@ function dashboardPage() {
     return `<!DOCTYPE html><html lang="th"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard — ESP32 Preview</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-header{background:#1e293b;padding:16px 28px;border-bottom:2px solid #3b82f6;
-display:flex;align-items:center;justify-content:space-between}
-h1{color:#3b82f6;font-size:1.3rem}
-.badge{background:#1e3a5f;color:#93c5fd;padding:4px 10px;border-radius:99px;font-size:.72rem}
-main{padding:28px;max-width:680px;margin:0 auto}
-.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-h2{font-size:.85rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+.navbar{background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;gap:12px}
+.nav-brand{display:flex;align-items:center;gap:6px;text-decoration:none}
+.nav-logo{color:#3b82f6;font-size:1.1rem}.nav-title{color:#f1f5f9;font-weight:700;font-size:.95rem}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-user{font-size:.78rem;color:#64748b}
+.nav-badge{font-size:.7rem;color:#475569;background:#0f172a;border:1px solid #334155;padding:2px 8px;border-radius:99px}
+main{flex:1;padding:28px;max-width:680px;margin:0 auto;width:100%}
+.info-box{background:#172554;border:1px solid #1d4ed8;border-radius:10px;
+  padding:14px 18px;margin-bottom:20px;font-size:.82rem;color:#93c5fd;line-height:1.7}
+.info-box code{background:#0f172a;padding:2px 7px;border-radius:4px;font-size:.8rem}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.page-title{font-size:.85rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
 .device-card{display:flex;align-items:center;gap:16px;background:#1e293b;
-border:1px solid #334155;border-radius:12px;padding:16px 20px;text-decoration:none;
-color:inherit;margin-bottom:12px;transition:border-color .15s}
-.device-card:hover{border-color:#3b82f6}
-.dot{width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0}
+  border:1px solid #334155;border-radius:12px;padding:16px 20px;text-decoration:none;
+  color:inherit;margin-bottom:12px;transition:border-color .15s,transform .1s}
+.device-card:hover{border-color:#3b82f6;transform:translateX(3px)}
+.dot{width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e66;flex-shrink:0}
 .dev-info{flex:1}
 .dev-name{font-weight:600;font-size:1rem;color:#f1f5f9}
 .dev-id{font-family:monospace;font-size:.72rem;color:#475569;margin-top:2px}
-.dev-on{font-size:.75rem;color:#22c55e;margin-top:2px}
-.arrow{color:#334155;font-size:1.2rem}
-.info-box{background:#172554;border:1px solid #1d4ed8;border-radius:10px;
-padding:14px 18px;margin-bottom:20px;font-size:.82rem;color:#93c5fd;line-height:1.6}
-.info-box code{background:#0f172a;padding:2px 7px;border-radius:4px;font-size:.8rem}
-footer{text-align:center;padding:20px;color:#334155;font-size:.75rem}
+.dev-on{font-size:.75rem;color:#22c55e;margin-top:3px}
+.arrow{color:#475569;font-size:1.1rem;transition:color .15s}
+.device-card:hover .arrow{color:#3b82f6}
+footer{text-align:center;padding:16px;color:#334155;font-size:.75rem;border-top:1px solid #1e293b}
 </style></head>
 <body>
-<header>
-  <h1>ESP32 Relay</h1>
-  <span class="badge">Preview Mode — ${MOCK_USER.email}</span>
-</header>
+<nav class="navbar">
+  <a class="nav-brand" href="/">
+    <span class="nav-logo">⚡</span>
+    <span class="nav-title">ESP32 Relay</span>
+  </a>
+  <div class="nav-right">
+    <span class="nav-user">${MOCK_USER.email}</span>
+    <span class="nav-badge">Preview Mode</span>
+  </div>
+</nav>
 <main>
   <div class="info-box">
-    🛠 <strong>Preview Mode</strong> — Auth ถูก bypass อัตโนมัติ<br>
-    กดที่การ์ดด้านล่างเพื่อเข้าสู่หน้าควบคุม GPIO<br>
+    🛠 <strong>Preview Mode</strong> — Auth bypass อัตโนมัติ<br>
+    กดที่การ์ดด้านล่างเพื่อเข้าหน้าควบคุม GPIO<br>
     หรือเข้าตรงที่ <code>http://localhost:${PORT}/d/${MOCK_DEVICE_ID}/</code>
   </div>
-  <div class="toolbar">
-    <h2>อุปกรณ์จำลอง (1)</h2>
+  <div class="page-header">
+    <span class="page-title">อุปกรณ์จำลอง (1)</span>
   </div>
   <a class="device-card" href="/d/${MOCK_DEVICE_ID}/">
     <span class="dot"></span>
     <div class="dev-info">
       <div class="dev-name">Mock ESP32 Device</div>
       <div class="dev-id">${MOCK_DEVICE_ID}</div>
-      <div class="dev-on">Online (จำลอง)</div>
+      <div class="dev-on">● Online (จำลอง)</div>
     </div>
-    <span class="arrow">→</span>
+    <span class="arrow">›</span>
   </a>
 </main>
 <footer>ESP32 Preview Server — port ${PORT}</footer>

@@ -3,49 +3,60 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arduino Nano ESP32</title>
+  <title>ESP32 Dashboard</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Arduino Nano ESP32</h1>
-      <p id="dev-subtitle">Web Server Dashboard</p>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <a class="nav-home" href="/" id="nav-home-link">
+        <span class="nav-logo">⚡</span>
+        <span class="nav-title">ESP32 Relay</span>
+      </a>
+      <span class="nav-sep" id="nav-sep">›</span>
+      <span class="nav-devname" id="nav-devname">กำลังโหลด...</span>
     </div>
-    <button type="button" class="btn-settings" onclick="openSettings()">⚙ ตั้งค่า</button>
-  </header>
+    <div class="nav-right">
+      <button type="button" class="nav-btn" id="nav-settings-btn" onclick="openSettings()">⚙ ตั้งค่า</button>
+      <span class="nav-user" id="nav-user"></span>
+      <button type="button" class="nav-btn danger" id="nav-logout-btn" onclick="logout()">ออกจากระบบ</button>
+      <span class="nav-badge" id="nav-local-badge">Local</span>
+    </div>
+  </nav>
 
   <main>
+    <!-- Status Card -->
     <section class="card" id="status-card">
       <h2>สถานะอุปกรณ์</h2>
       <div class="info-grid">
         <div class="info-item">
           <span class="label">IP Address</span>
-          <span class="value" id="ip">กำลังโหลด...</span>
+          <span class="value" id="ip">—</span>
         </div>
         <div class="info-item">
           <span class="label">WiFi Signal</span>
-          <span class="value" id="rssi">กำลังโหลด...</span>
+          <span class="value" id="rssi">—</span>
         </div>
         <div class="info-item">
           <span class="label">Uptime</span>
-          <span class="value" id="uptime">กำลังโหลด...</span>
+          <span class="value" id="uptime">—</span>
         </div>
         <div class="info-item">
           <span class="label">สถานะ</span>
-          <span class="value status-ok" id="status">กำลังโหลด...</span>
+          <span class="value" id="status">—</span>
         </div>
       </div>
       <button type="button" onclick="fetchStatus()">รีเฟรช</button>
     </section>
 
+    <!-- OTA Card -->
     <section class="card ota-card">
       <h2>OTA Update</h2>
 
-      <!-- แสดงเมื่อเข้าผ่าน Local IP โดยตรง -->
       <div id="ota-local">
         <div class="ota-hint">
-          อัพโหลดไฟล์ <code>.bin</code> จาก PlatformIO:<br>
           Firmware → <code>.pio/build/.../firmware.bin</code><br>
           Filesystem → <code>.pio/build/.../littlefs.bin</code>
         </div>
@@ -59,9 +70,7 @@
           </div>
           <div class="ota-progress-wrap"><div class="ota-progress-fill" id="ota-fw-fill"></div></div>
           <div class="ota-status" id="ota-fw-status"></div>
-          <button type="button" class="btn-ota" id="ota-fw-btn" disabled onclick="uploadOTA('fw')">
-            อัพโหลด Firmware
-          </button>
+          <button type="button" class="btn-ota" id="ota-fw-btn" disabled onclick="uploadOTA('fw')">อัพโหลด Firmware</button>
         </div>
 
         <div class="ota-section">
@@ -73,22 +82,19 @@
           </div>
           <div class="ota-progress-wrap"><div class="ota-progress-fill" id="ota-fs-fill"></div></div>
           <div class="ota-status" id="ota-fs-status"></div>
-          <button type="button" class="btn-ota" id="ota-fs-btn" disabled onclick="uploadOTA('fs')">
-            อัพโหลด Filesystem
-          </button>
+          <button type="button" class="btn-ota" id="ota-fs-btn" disabled onclick="uploadOTA('fs')">อัพโหลด Filesystem</button>
         </div>
       </div>
 
-      <!-- แสดงเมื่อเข้าผ่าน Relay -->
       <div id="ota-relay" class="hidden">
         <div class="ota-relay-notice">
           OTA ต้องทำผ่าน Local IP เท่านั้น<br>
-          เปิด browser แล้วไปที่<br>
           <a id="ota-local-link" href="#" target="_blank" rel="noopener">กำลังโหลด IP...</a>
         </div>
       </div>
     </section>
 
+    <!-- GPIO Card -->
     <section class="card gpio-card">
       <h2>
         GPIO Control
@@ -118,7 +124,6 @@
         <button type="button" class="tab-btn" id="tab-users-btn" onclick="switchTab('users')">ผู้ใช้</button>
       </div>
 
-      <!-- Device Tab -->
       <div class="tab-pane" id="tab-device">
         <div class="settings-group">
           <label class="settings-label">ชื่ออุปกรณ์</label>
@@ -138,7 +143,6 @@
         </div>
       </div>
 
-      <!-- Users Tab -->
       <div class="tab-pane hidden" id="tab-users">
         <div class="settings-group">
           <label class="settings-label">ผู้ใช้ที่มีสิทธิ์เข้าถึง</label>

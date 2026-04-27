@@ -18,14 +18,23 @@ async function initRole() {
 }
 
 function applyRoleUI(d = {}) {
-  // Settings button: ซ่อนสำหรับ viewer (ไม่มีอะไรให้ตั้งค่า)
-  const btn = document.querySelector('.btn-settings');
-  if (btn) btn.classList.toggle('hidden', deviceRole === 'viewer');
+  const isOwner   = deviceRole === 'owner';
+  const canControl = deviceRole !== 'viewer';
 
-  // อัพเดทชื่ออุปกรณ์ใน subtitle
-  if (d.name) document.getElementById('dev-subtitle').textContent = d.name;
+  // Navbar: device name
+  const navName = document.getElementById('nav-devname');
+  if (navName && d.name) navName.textContent = d.name;
 
-  // Pre-fill settings fields ด้วย (เผื่อ modal เปิดทีหลัง)
+  // Navbar: settings button (editor + owner)
+  const navSettings = document.getElementById('nav-settings-btn');
+  if (navSettings) navSettings.classList.toggle('hidden', !canControl);
+
+  // Navbar: local badge vs user/logout (relay mode)
+  document.getElementById('nav-local-badge')?.classList.toggle('hidden', !isLocalMode);
+  document.getElementById('nav-user')?.classList.toggle('hidden', isLocalMode);
+  document.getElementById('nav-logout-btn')?.classList.toggle('hidden', isLocalMode);
+
+  // Settings modal pre-fill
   const nameInput = document.getElementById('s-devname');
   if (nameInput && d.name) nameInput.value = d.name;
   const pcodeEl = document.getElementById('s-pcode');
@@ -35,11 +44,24 @@ function applyRoleUI(d = {}) {
 
   // Save name + invite: owner เท่านั้น
   const saveBtn = document.querySelector('.btn-save');
-  if (saveBtn) saveBtn.classList.toggle('hidden', deviceRole !== 'owner');
+  if (saveBtn) saveBtn.classList.toggle('hidden', !isOwner);
   const invSec = document.getElementById('invite-section');
-  if (invSec) invSec.classList.toggle('hidden', deviceRole !== 'owner');
+  if (invSec) invSec.classList.toggle('hidden', !isOwner);
   const usersTab = document.getElementById('tab-users-btn');
-  if (usersTab) usersTab.classList.toggle('hidden', deviceRole !== 'owner');
+  if (usersTab) usersTab.classList.toggle('hidden', !isOwner);
+}
+
+async function fetchNavUser() {
+  if (isLocalMode) return;
+  try {
+    const u  = await fetch('/api/auth/me').then(r => r.json());
+    const el = document.getElementById('nav-user');
+    if (el) el.textContent = u.email;
+  } catch { /* silent */ }
+}
+
+function logout() {
+  fetch('/api/auth/logout', { method: 'POST' }).then(() => { location.href = '/login'; });
 }
 
 // ======= Status =======
@@ -271,7 +293,8 @@ async function saveName() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ name }),
     });
-    document.getElementById('dev-subtitle').textContent = name;
+    const navName = document.getElementById('nav-devname');
+    if (navName) navName.textContent = name;
     showSettingsMsg('บันทึกแล้ว', 'msg-ok');
   } catch { showSettingsMsg('บันทึกไม่ได้', 'msg-err'); }
 }
@@ -404,6 +427,7 @@ function updateOtaLink(ip) {
 // ======= Init =======
 initOTA();
 fetchStatus();
+fetchNavUser();
 // โหลด role ก่อนเสมอ เพื่อให้ GPIO grid แสดงสิทธิ์ถูกต้องตั้งแต่ต้น
 initRole().then(() => fetchGpioLabels().then(fetchGpio));
 setInterval(fetchStatus, 10000);

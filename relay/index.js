@@ -59,67 +59,93 @@ function dashboardPage(user) {
     return `<!DOCTYPE html><html lang="th"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard — ESP32 Relay</title>
-<style>*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-header{background:#1e293b;padding:16px 28px;border-bottom:2px solid #3b82f6;
-display:flex;align-items:center;justify-content:space-between}
-h1{color:#3b82f6;font-size:1.3rem}
-.user{font-size:.8rem;color:#64748b}
-.logout{background:none;border:1px solid #334155;color:#94a3b8;padding:6px 14px;
-border-radius:7px;cursor:pointer;font-size:.8rem}
-.logout:hover{border-color:#ef4444;color:#ef4444}
-main{padding:28px;max-width:680px;margin:0 auto}
-.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-h2{font-size:.9rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
-.btn-pair{background:#3b82f6;color:#fff;border:none;padding:9px 20px;border-radius:8px;
-font-size:.85rem;cursor:pointer}
-.btn-pair:hover{background:#2563eb}
-.device-card{display:flex;align-items:center;gap:16px;background:#1e293b;
-border:1px solid #334155;border-radius:12px;padding:16px 20px;text-decoration:none;
-color:inherit;margin-bottom:12px;transition:border-color .15s}
-.device-card:hover{border-color:#3b82f6}
-.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.dot-on{background:#22c55e}.dot-off{background:#475569}
-.dev-info{flex:1}
-.dev-name{font-weight:600;font-size:1rem;color:#f1f5f9}
-.dev-id{font-family:monospace;font-size:.72rem;color:#475569;margin-top:2px}
-.dev-status{font-size:.75rem;margin-top:2px}
-.on{color:#22c55e}.off{color:#475569}
-.arrow{color:#334155;font-size:1.2rem}
-.empty{color:#475569;text-align:center;padding:48px;background:#1e293b;border-radius:12px}
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
 
-/* Modal */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10;
-align-items:center;justify-content:center}
+/* ── Navbar ── */
+.navbar{background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;height:56px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:50;gap:12px}
+.nav-brand{display:flex;align-items:center;gap:6px;text-decoration:none;flex-shrink:0}
+.nav-logo{color:#3b82f6;font-size:1.1rem}
+.nav-title{color:#f1f5f9;font-weight:700;font-size:.95rem}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-user{font-size:.78rem;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav-btn{background:none;border:1px solid #334155;color:#94a3b8;
+  padding:6px 14px;border-radius:7px;cursor:pointer;font-size:.8rem;white-space:nowrap;transition:all .15s}
+.nav-btn:hover{border-color:#3b82f6;color:#3b82f6}
+.nav-btn.danger:hover{border-color:#ef4444;color:#ef4444}
+
+/* ── Main ── */
+main{flex:1;padding:28px;max-width:680px;margin:0 auto;width:100%}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.page-title{font-size:.85rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+.btn-pair{background:#3b82f6;color:#fff;border:none;padding:9px 20px;border-radius:8px;font-size:.85rem;cursor:pointer;transition:background .15s}
+.btn-pair:hover{background:#2563eb}
+
+/* ── Device Cards ── */
+.device-card{display:flex;align-items:center;gap:16px;background:#1e293b;
+  border:1px solid #334155;border-radius:12px;padding:16px 20px;text-decoration:none;
+  color:inherit;margin-bottom:12px;transition:border-color .15s,transform .1s}
+.device-card:hover{border-color:#3b82f6;transform:translateX(3px)}
+.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot-on{background:#22c55e;box-shadow:0 0 6px #22c55e66}
+.dot-off{background:#334155}
+.dev-info{flex:1;min-width:0}
+.dev-name{font-weight:600;font-size:1rem;color:#f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dev-id{font-family:monospace;font-size:.72rem;color:#475569;margin-top:2px}
+.dev-status{font-size:.75rem;margin-top:3px}
+.on{color:#22c55e}.off{color:#475569}
+.arrow{color:#475569;font-size:1.1rem;flex-shrink:0;transition:color .15s}
+.device-card:hover .arrow{color:#3b82f6}
+.empty{color:#475569;text-align:center;padding:56px 24px;background:#1e293b;
+  border-radius:12px;border:1px dashed #334155;line-height:1.8}
+
+/* ── Modal ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);
+  z-index:100;align-items:center;justify-content:center;padding:16px}
 .overlay.show{display:flex}
-.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px;
-width:100%;max-width:380px}
-.modal h3{color:#3b82f6;font-size:1.1rem;margin-bottom:6px}
-.modal p{color:#64748b;font-size:.82rem;margin-bottom:20px}
-label{display:block;font-size:.72rem;color:#64748b;text-transform:uppercase;margin-bottom:4px}
+.modal{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px;width:100%;max-width:380px}
+.modal-title{color:#3b82f6;font-size:1.05rem;font-weight:700;margin-bottom:6px}
+.modal-desc{color:#64748b;font-size:.82rem;margin-bottom:20px;line-height:1.6}
+.field-label{display:block;font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
 input{width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;
-padding:10px 12px;border-radius:8px;font-size:.9rem;outline:none;letter-spacing:.15em}
+  padding:10px 12px;border-radius:8px;font-size:1rem;outline:none;letter-spacing:.1em}
 input:focus{border-color:#3b82f6}
-.modal-btns{display:flex;gap:10px;margin-top:16px}
-.btn-ok{flex:1;background:#3b82f6;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;font-weight:600}
-.btn-ok:hover{background:#2563eb}
-.btn-cancel{flex:0;background:#334155;color:#94a3b8;border:none;padding:10px 16px;border-radius:8px;cursor:pointer}
-.msg{padding:8px 12px;border-radius:7px;font-size:.82rem;margin-top:10px;display:none}
-.err{background:#450a0a;color:#f87171;display:block}
-.ok{background:#052e16;color:#4ade80;display:block}
-footer{text-align:center;padding:20px;color:#334155;font-size:.75rem}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.btn-primary{flex:1;background:#3b82f6;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.9rem}
+.btn-primary:hover{background:#2563eb}
+.btn-secondary{background:#334155;color:#94a3b8;border:none;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:.9rem}
+.msg-box{padding:8px 12px;border-radius:7px;font-size:.82rem;margin-top:12px;display:none}
+.msg-err{background:#450a0a;color:#f87171;display:block}
+.msg-ok{background:#052e16;color:#4ade80;display:block}
+.msg-inf{background:#172554;color:#93c5fd;display:block}
+
+footer{text-align:center;padding:20px;color:#334155;font-size:.75rem;border-top:1px solid #1e293b}
+
+@media(max-width:480px){
+  .navbar{padding:0 16px}
+  .nav-user{display:none}
+  main{padding:16px}
+}
 </style></head>
 <body>
-<header>
-  <h1>ESP32 Relay</h1>
-  <div style="display:flex;align-items:center;gap:12px">
-    <span class="user">${user.email}</span>
-    <button class="logout" onclick="logout()">ออกจากระบบ</button>
+
+<nav class="navbar">
+  <a class="nav-brand" href="/">
+    <span class="nav-logo">⚡</span>
+    <span class="nav-title">ESP32 Relay</span>
+  </a>
+  <div class="nav-right">
+    <span class="nav-user">${user.email}</span>
+    <button class="nav-btn danger" onclick="logout()">ออกจากระบบ</button>
   </div>
-</header>
+</nav>
+
 <main>
-  <div class="toolbar">
-    <h2>อุปกรณ์ของฉัน (<span id="count">0</span>)</h2>
+  <div class="page-header">
+    <span class="page-title">อุปกรณ์ของฉัน (<span id="count">0</span>)</span>
     <button class="btn-pair" onclick="openModal()">+ เพิ่มอุปกรณ์</button>
   </div>
   <div id="device-list"><div class="empty">กำลังโหลด...</div></div>
@@ -127,41 +153,43 @@ footer{text-align:center;padding:20px;color:#334155;font-size:.75rem}
 
 <div class="overlay" id="modal">
   <div class="modal">
-    <h3>เพิ่มอุปกรณ์ใหม่</h3>
-    <p>ดู Pairing Code ได้จากหน้า Setup ของ ESP32 (192.168.4.1)</p>
-    <label>Pairing Code</label>
-    <input type="text" id="pcode" maxlength="6" placeholder="6 หลัก" />
-    <div id="pair-msg" class="msg"></div>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeModal()">ยกเลิก</button>
-      <button class="btn-ok" onclick="pair()">ผูกอุปกรณ์</button>
+    <div class="modal-title">เพิ่มอุปกรณ์ใหม่</div>
+    <div class="modal-desc">ดู Pairing Code 6 หลักได้จากหน้า Setup ของ ESP32<br>(เชื่อมต่อ WiFi ชื่อ <strong>ESP32-XXXX</strong> แล้วเปิด 192.168.4.1)</div>
+    <label class="field-label">Pairing Code</label>
+    <input type="text" id="pcode" maxlength="6" placeholder="000000" />
+    <div id="pair-msg" class="msg-box"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn-primary" onclick="pair()">ผูกอุปกรณ์</button>
     </div>
   </div>
 </div>
 
-<footer>ESP32 Relay — Phase 3</footer>
+<footer>ESP32 Relay</footer>
 <script>
-function showPairMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg '+c;}
+function showMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg-box '+(c?'msg-'+c:'');}
 function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('pcode').focus();}
-function closeModal(){document.getElementById('modal').classList.remove('show');showPairMsg('','');}
+function closeModal(){document.getElementById('modal').classList.remove('show');showMsg('','');}
 document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
-
-function logout(){
-  fetch('/api/auth/logout',{method:'POST'}).then(function(){location.href='/login';});
-}
+function logout(){fetch('/api/auth/logout',{method:'POST'}).then(function(){location.href='/login';});}
 
 function renderDevices(list){
   var el=document.getElementById('device-list');
   document.getElementById('count').textContent=list.length;
-  if(!list.length){el.innerHTML='<div class="empty">ยังไม่มีอุปกรณ์ เพิ่มอุปกรณ์แรกของคุณ →</div>';return;}
+  if(!list.length){
+    el.innerHTML='<div class="empty">ยังไม่มีอุปกรณ์<br>กด <strong>+ เพิ่มอุปกรณ์</strong> เพื่อเริ่มต้น</div>';
+    return;
+  }
   el.innerHTML=list.map(function(d){
     var on=d.online;
     return '<a class="device-card" href="/d/'+d.device_id+'/">'
       +'<span class="status-dot '+(on?'dot-on':'dot-off')+'"></span>'
-      +'<div class="dev-info"><div class="dev-name">'+d.name+'</div>'
-      +'<div class="dev-id">'+d.device_id+'</div>'
-      +'<div class="dev-status '+(on?'on':'off')+'">'+(on?'Online':'Offline')+'</div></div>'
-      +'<span class="arrow">→</span></a>';
+      +'<div class="dev-info">'
+        +'<div class="dev-name">'+d.name+'</div>'
+        +'<div class="dev-id">'+d.device_id+'</div>'
+        +'<div class="dev-status '+(on?'on':'off')+'">'+(on?'● Online':'● Offline')+'</div>'
+      +'</div>'
+      +'<span class="arrow">›</span></a>';
   }).join('');
 }
 
@@ -174,24 +202,19 @@ function loadDevices(){
 
 function pair(){
   var code=document.getElementById('pcode').value.trim();
-  if(code.length!==6){showPairMsg('Pairing Code ต้องมี 6 หลัก','err');return;}
-  showPairMsg('กำลังผูก...','inf');
+  if(!/^\d{6}$/.test(code)){showMsg('Pairing Code ต้องเป็นตัวเลข 6 หลัก','err');return;}
+  showMsg('กำลังผูกอุปกรณ์...','inf');
   fetch('/api/devices/pair',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({pairingCode:code})})
   .then(function(r){return r.json();}).then(function(d){
-    if(d.ok){showPairMsg('ผูกอุปกรณ์สำเร็จ!','ok');loadDevices();setTimeout(closeModal,1500);}
-    else showPairMsg(d.error||'เกิดข้อผิดพลาด','err');
-  }).catch(function(){showPairMsg('เชื่อมต่อไม่ได้','err');});
+    if(d.ok){showMsg('ผูกอุปกรณ์สำเร็จ!','ok');loadDevices();setTimeout(closeModal,1500);}
+    else showMsg(d.error||'เกิดข้อผิดพลาด','err');
+  }).catch(function(){showMsg('เชื่อมต่อไม่ได้','err');});
 }
 
 document.getElementById('pcode').addEventListener('keydown',function(e){if(e.key==='Enter')pair();});
 loadDevices();
-setInterval(loadDevices, 10000);
-
-// pair-msg ใช้ inf style ด้วย
-var s=document.createElement('style');
-s.textContent='.inf{background:#172554;color:#93c5fd;display:block}';
-document.head.appendChild(s);
+setInterval(loadDevices,10000);
 </script>
 </body></html>`;
 }
