@@ -77,6 +77,21 @@ function formatUptime(s) {
   return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m ${s%60}s`;
 }
 
+// ======= Toast =======
+function showToast(msg, type = 'ok') {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('show')));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+  }, 2800);
+}
+
 // ======= GPIO Labels =======
 async function fetchGpioLabels() {
   try {
@@ -94,7 +109,8 @@ async function saveLabel(pin, label) {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ pin, label }),
     });
-  } catch { /* silent */ }
+    showToast(label ? `บันทึกชื่อ "${label}" แล้ว` : 'ลบชื่อแล้ว');
+  } catch { showToast('บันทึกไม่ได้', 'err'); }
 }
 
 // ======= GPIO Filter =======
@@ -148,6 +164,27 @@ function updateGpioStats() {
   el.textContent = outCount ? `${outCount} OUT · ${hiCount} HIGH` : '';
 }
 
+// ======= GPIO Skeleton =======
+function renderSkeletonGrid() {
+  const grid = document.getElementById('gpio-grid');
+  grid.innerHTML = Array(12).fill(`
+    <div class="pin-card">
+      <div class="pin-header">
+        <div class="pin-names">
+          <div class="skel skel-name"></div>
+          <div class="skel skel-hint"></div>
+        </div>
+        <div class="skel skel-gpio"></div>
+      </div>
+      <div class="pin-modes">
+        <div class="skel skel-btn"></div>
+        <div class="skel skel-btn"></div>
+        <div class="skel skel-btn"></div>
+      </div>
+      <div class="skel skel-val"></div>
+    </div>`).join('');
+}
+
 // ======= GPIO Fetch =======
 async function fetchGpio() {
   try {
@@ -179,10 +216,11 @@ async function setGpio(pin, mode, value) {
 function renderGpioGrid(pins) {
   const grid = document.getElementById('gpio-grid');
   grid.innerHTML = '';
-  pins.forEach(p => {
+  pins.forEach((p, i) => {
     const card       = document.createElement('div');
     card.className   = 'pin-card';
     card.dataset.pin = p.name;
+    card.style.animationDelay = `${i * 18}ms`; // stagger 18ms ต่อการ์ด
     renderPinCard(card, p);
     grid.appendChild(card);
   });
@@ -193,12 +231,23 @@ function updateGpioValues(pins) {
   pins.forEach(p => {
     const prev = gpioState[p.name];
     if (prev && (prev.value !== p.value || prev.mode !== p.mode)) {
+      const valueChanged = prev.value !== p.value;
       gpioState[p.name] = p;
       const card = document.querySelector(`[data-pin="${p.name}"]`);
-      if (card) renderPinCard(card, p);
+      if (card) {
+        renderPinCard(card, p);
+        if (valueChanged) flashPinCard(card);
+      }
     }
   });
   applyFilter();
+}
+
+function flashPinCard(card) {
+  card.classList.remove('pin-flash');
+  void card.offsetWidth; // force reflow เพื่อ restart animation
+  card.classList.add('pin-flash');
+  card.addEventListener('animationend', () => card.classList.remove('pin-flash'), { once: true });
 }
 
 function renderPinCard(card, p) {
@@ -354,8 +403,9 @@ async function saveName() {
     });
     const navName = document.getElementById('nav-devname');
     if (navName) navName.textContent = name;
-    showSettingsMsg('บันทึกแล้ว', 'msg-ok');
-  } catch { showSettingsMsg('บันทึกไม่ได้', 'msg-err'); }
+    showToast('บันทึกชื่ออุปกรณ์แล้ว');
+    closeSettings();
+  } catch { showToast('บันทึกไม่ได้', 'err'); }
 }
 
 async function loadDeviceUsers() {
@@ -385,8 +435,9 @@ async function inviteUser() {
       body:   JSON.stringify({ email, role }),
     }).then(r => r.json());
     if (d.ok) {
-      msg.textContent = 'เชิญสำเร็จ!'; msg.className = 'settings-msg msg-ok';
+      showToast('เชิญผู้ใช้สำเร็จ!');
       document.getElementById('s-email').value = '';
+      msg.textContent = ''; msg.className = 'settings-msg';
       loadDeviceUsers();
     } else { msg.textContent = d.error || 'เกิดข้อผิดพลาด'; msg.className = 'settings-msg msg-err'; }
   } catch { msg.textContent = 'เชื่อมต่อไม่ได้'; msg.className = 'settings-msg msg-err'; }
@@ -456,6 +507,7 @@ function updateOtaLink(ip) {
 initOTA();
 fetchStatus();
 fetchNavUser();
+renderSkeletonGrid(); // แสดง skeleton ทันทีก่อนข้อมูลจริงมา
 initRole().then(() => fetchGpioLabels().then(fetchGpio));
 setInterval(fetchStatus, 10000);
 setInterval(() => { fetchGpio(); startCountdown(); }, 2000);
