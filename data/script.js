@@ -188,12 +188,15 @@ function renderSkeletonGrid() {
 // ======= GPIO Fetch =======
 async function fetchGpio() {
   try {
-    const data   = await fetch('api/gpio').then(r => r.json());
+    const data    = await fetch('api/gpio').then(r => r.json());
     const isFirst = gpioOrder.length === 0;
     gpioOrder = data.pins.map(p => p.name);
-    data.pins.forEach(p => { gpioState[p.name] = p; });
-    if (isFirst) renderGpioGrid(data.pins);
-    else         updateGpioValues(data.pins);
+    if (isFirst) {
+      data.pins.forEach(p => { gpioState[p.name] = p; });
+      renderGpioGrid(data.pins);
+    } else {
+      updateGpioValues(data.pins); // เปรียบเทียบกับ gpioState เดิมก่อน แล้วค่อยอัพเดท
+    }
     updateGpioStats();
   } catch { /* silent */ }
 }
@@ -237,14 +240,14 @@ function renderGpioGrid(pins) {
 
 function updateGpioValues(pins) {
   pins.forEach(p => {
-    const prev = gpioState[p.name];
-    if (prev && (prev.value !== p.value || prev.mode !== p.mode)) {
-      const valueChanged = prev.value !== p.value;
-      gpioState[p.name] = p;
+    const prev    = gpioState[p.name];
+    const changed = !prev || prev.value !== p.value || prev.mode !== p.mode;
+    gpioState[p.name] = p; // อัพเดท state หลังเปรียบเทียบแล้ว
+    if (changed && prev) {
       const card = document.querySelector(`[data-pin="${p.name}"]`);
       if (card) {
         renderPinCard(card, p);
-        if (valueChanged) flashPinCard(card);
+        if (prev.value !== p.value) flashPinCard(card);
       }
     }
   });
