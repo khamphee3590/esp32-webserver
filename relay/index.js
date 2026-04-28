@@ -21,6 +21,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(authRouter); // login / register / forgot / reset pages + /api/auth/*
 
+// ======= Async wrapper — catch unhandled rejections in routes =======
+const wrap = fn => (req, res, next) => fn(req, res, next).catch(next);
+
+// Express error handler
+process.on('unhandledRejection', (err) => console.error('[UnhandledRejection]', err));
+
 // ======= Auth Middleware =======
 function authRequired(req, res, next) {
     try {
@@ -361,16 +367,16 @@ app.get('/healthz', (req, res) => {
 });
 
 // Devices API
-app.get('/api/devices', authRequired, async (req, res) => {
+app.get('/api/devices', authRequired, wrap(async (req, res) => {
     const rows = await db.getDevicesByUser(req.user.userId);
     const result = rows.map(d => ({
         ...d,
         online: devices.has(d.device_id) && devices.get(d.device_id).readyState === WebSocket.OPEN,
     }));
     res.json(result);
-});
+}));
 
-app.post('/api/devices/pair', authRequired, async (req, res) => {
+app.post('/api/devices/pair', authRequired, wrap(async (req, res) => {
     const { pairingCode } = req.body || {};
     if (!pairingCode) return res.status(400).json({ error: 'กรุณาใส่ Pairing Code' });
 
@@ -382,33 +388,33 @@ app.post('/api/devices/pair', authRequired, async (req, res) => {
 
     await db.pairDevice(req.user.userId, device.device_id, 'owner');
     res.json({ ok: true, device: { device_id: device.device_id, name: device.name } });
-});
+}));
 
-app.delete('/api/devices/:deviceId', authRequired, async (req, res) => {
+app.delete('/api/devices/:deviceId', authRequired, wrap(async (req, res) => {
     await db.unpairDevice(req.user.userId, req.params.deviceId);
     res.json({ ok: true });
-});
+}));
 
 // Device proxy (ต้อง login + มีสิทธิ์เข้าถึง device)
-app.use('/d/:deviceId', authRequired, async (req, res, next) => {
-    const access = await db.getDeviceAccess(req.user.userId, req.params.deviceId);
+// รวมทั้ง access check และ proxy ใน handler เดียวเพื่อให้ wrap() ครอบได้ถูกต้อง
+app.use('/d/:deviceId', authRequired, wrap(async (req, res) => {
+    const { deviceId } = req.params;
+
+    // ตรวจสิทธิ์
+    const access = await db.getDeviceAccess(req.user.userId, deviceId);
     if (!access) {
         const isNavigation = req.headers['sec-fetch-mode'] === 'navigate';
         return isNavigation
             ? res.status(403).send(`<h1 style="font-family:sans-serif;color:#ef4444;padding:40px">403 — ไม่มีสิทธิ์เข้าถึงอุปกรณ์นี้</h1>`)
             : res.status(403).json({ error: 'Access denied' });
     }
-    req.deviceRole = access.role;
-    next();
-}, async (req, res) => {
-    const { deviceId } = req.params;
+
     const subPath    = req.path;
-    const isOwner    = req.deviceRole === 'owner';
-    const canControl = req.deviceRole !== 'viewer'; // owner + editor
+    const isOwner    = access.role === 'owner';
+    const canControl = access.role !== 'viewer';
 
-    // ======= Relay-managed routes (ไม่ forward ไป ESP32) =======
+    // ======= Relay-managed routes =======
 
-    // GPIO Labels
     if (subPath === '/api/gpio/labels') {
         if (req.method === 'GET')
             return res.json(await db.getGpioLabels(deviceId));
@@ -421,11 +427,10 @@ app.use('/d/:deviceId', authRequired, async (req, res, next) => {
         }
     }
 
-    // Device Info
     if (subPath === '/api/device/info') {
         if (req.method === 'GET') {
             const d = await db.getDeviceById(deviceId);
-            return res.json({ ...d, role: req.deviceRole });
+            return res.json({ ...d?.toObject?.() ?? d, role: access.role });
         }
         if (req.method === 'PUT' && isOwner) {
             const { name } = req.body || {};
@@ -434,7 +439,6 @@ app.use('/d/:deviceId', authRequired, async (req, res, next) => {
         }
     }
 
-    // User Management (owner only)
     if (subPath === '/api/device/users') {
         if (!isOwner) return res.status(403).json({ error: 'Owner only' });
         if (req.method === 'GET')
@@ -447,24 +451,21 @@ app.use('/d/:deviceId', authRequired, async (req, res, next) => {
         }
     }
 
-    // Remove user (owner only, ไม่ให้ลบตัวเอง)
-    const removeMatch = subPath.match(/^\/api\/device\/users\/(\d+)$/);
+    const removeMatch = subPath.match(/^\/api\/device\/users\/([a-f0-9]{24})$/i);
     if (removeMatch && req.method === 'DELETE') {
         if (!isOwner) return res.status(403).json({ error: 'Owner only' });
-        const targetId = Number(removeMatch[1]);
-        if (targetId === req.user.userId) return res.status(400).json({ error: 'ไม่สามารถลบตัวเองได้' });
+        const targetId = removeMatch[1];
+        if (String(targetId) === String(req.user.userId))
+            return res.status(400).json({ error: 'ไม่สามารถลบตัวเองได้' });
         await db.unpairDevice(targetId, deviceId);
         return res.json({ ok: true });
     }
 
     // ======= Forward ไป ESP32 =======
-
-    // Viewer อ่านได้อย่างเดียว — block ทุก method ที่ไม่ใช่ GET
     if (req.method !== 'GET' && !canControl)
         return res.status(403).json({ error: 'Viewer ไม่มีสิทธิ์สั่งการ' });
 
     const ws = devices.get(deviceId);
-
     if (!ws || ws.readyState !== WebSocket.OPEN)
         return res.status(503).send(offlinePage(deviceId));
 
@@ -482,11 +483,24 @@ app.use('/d/:deviceId', authRequired, async (req, res, next) => {
         query:  req.query,
         body:   req.body ? JSON.stringify(req.body) : '',
     }));
+}));
+
+// Express error handler สำหรับ async errors
+app.use((err, req, res, _next) => {
+    console.error('[Error]', err.message);
+    res.status(500).json({ error: 'Internal server error' });
 });
 
-// ======= Start =======
+// ======= Start — รอ MongoDB ก่อน listen =======
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-    console.log(`Relay on port ${PORT}`);
-    console.log(`Dashboard: http://localhost:${PORT}/`);
-});
+db.connect()
+    .then(() => {
+        httpServer.listen(PORT, () => {
+            console.log(`Relay on port ${PORT}`);
+            console.log(`Dashboard: http://localhost:${PORT}/`);
+        });
+    })
+    .catch(err => {
+        console.error('❌ Cannot connect to MongoDB:', err.message);
+        process.exit(1);
+    });

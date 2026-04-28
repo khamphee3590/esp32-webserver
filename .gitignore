@@ -3,3 +3,14 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Node
+node_modules/
+package-lock.json
+relay/node_modules/
+relay/package-lock.json
+
+# Secrets & data
+relay/.env
+relay/db.json
+.env
