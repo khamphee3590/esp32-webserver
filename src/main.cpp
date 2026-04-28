@@ -344,9 +344,12 @@ void onTunnelEvent(WStype_t type, uint8_t* payload, size_t length) {
             StaticJsonDocument<512> doc;
             if (deserializeJson(doc, jsonPart)) return;
             if (doc["type"] == "request") {
-                Serial.printf("[Tunnel] %s %s\n",
-                    doc["method"].as<const char*>(), doc["path"].as<const char*>());
-                handleTunnelRequest(doc["id"], doc["method"], doc["path"], doc["body"] | "");
+                const char* method = doc["method"] | "";
+                const char* path   = doc["path"]   | "/";
+                const char* id     = doc["id"]     | "";
+                if (!id[0]) break; // id ว่างไม่สามารถส่ง response กลับได้
+                Serial.printf("[Tunnel] %s %s\n", method, path);
+                handleTunnelRequest(id, method, path, doc["body"] | "");
             }
             break;
         }

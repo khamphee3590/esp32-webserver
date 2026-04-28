@@ -503,7 +503,9 @@ function uploadOTA(type) {
       setTimeout(() => location.reload(), 12000);
     } else { fill.classList.add('fill-err'); setOtaStatus(type, 'ล้มเหลว: ' + xhr.responseText, 'err'); btn.disabled = false; }
   });
-  xhr.addEventListener('error', () => { setOtaStatus(type, 'เชื่อมต่อไม่ได้', 'err'); btn.disabled = false; });
+  xhr.addEventListener('error',   () => { setOtaStatus(type, 'เชื่อมต่อไม่ได้', 'err'); btn.disabled = false; });
+  xhr.addEventListener('timeout', () => { setOtaStatus(type, 'หมดเวลา — ไฟล์ใหญ่เกินไปหรือ connection ช้า', 'err'); btn.disabled = false; });
+  xhr.timeout = 120000; // 2 นาที
   xhr.open('POST', `ota?type=${type}`);
   xhr.send(formData);
 }

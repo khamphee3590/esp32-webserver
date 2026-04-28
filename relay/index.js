@@ -264,6 +264,15 @@ wss.on('connection', (ws, req) => {
         if (deviceId && devices.get(deviceId) === ws) {
             devices.delete(deviceId);
             db.touchDevice(deviceId);
+            // ส่ง 503 ทันทีสำหรับ pending requests ของ device นี้
+            // ไม่ต้องรอ timeout 10 วิ
+            for (const [pid, entry] of pending) {
+                if (entry.deviceId === deviceId) {
+                    clearTimeout(entry.timer);
+                    pending.delete(pid);
+                    try { entry.res.status(503).send(offlinePage(deviceId)); } catch {}
+                }
+            }
             console.log(`[Device] ${deviceId} disconnected (total: ${devices.size})`);
         }
     });
@@ -275,6 +284,7 @@ wss.on('connection', (ws, req) => {
 
 // Dashboard JS (public — เป็นแค่ฟังก์ชัน ไม่มีข้อมูลส่วนตัว)
 const DASH_JS = `
+function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function showMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg-box '+(c?'msg-'+c:'');}
 function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('pcode').focus();}
 function closeModal(){document.getElementById('modal').classList.remove('show');showMsg('','');document.getElementById('pcode').value='';}
@@ -306,9 +316,9 @@ function renderDevices(list){
     var status=on?'● Online':'○ Last seen '+relTime(d.last_seen);
     return '<div class="device-card" onclick="location.href=\\'/d/'+d.device_id+'/\\'">'
       +'<span class="status-dot '+(on?'dot-on':'dot-off')+'"></span>'
-      +'<div class="dev-info"><div class="dev-top"><span class="dev-name">'+d.name+'</span>'
-      +'<span class="role-badge role-'+role+'">'+role+'</span></div>'
-      +'<div class="dev-id">'+d.device_id+'</div>'
+      +'<div class="dev-info"><div class="dev-top"><span class="dev-name">'+esc(d.name)+'</span>'
+      +'<span class="role-badge role-'+esc(role)+'">'+esc(role)+'</span></div>'
+      +'<div class="dev-id">'+esc(d.device_id)+'</div>'
       +'<div class="dev-status '+(on?'on':'off')+'">'+status+'</div></div>'
       +'<div class="dev-actions">'
       +'<button class="btn-del" onclick="event.stopPropagation();delDevice(\\''+d.device_id+'\\')" title="ลบ">✕</button>'
@@ -466,7 +476,7 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
         if (pending.has(id)) { pending.delete(id); res.status(504).send('Gateway Timeout'); }
     }, TIMEOUT_MS);
 
-    pending.set(id, { res, timer });
+    pending.set(id, { res, timer, deviceId });
     ws.send(JSON.stringify({
         type:   'request',
         id,
