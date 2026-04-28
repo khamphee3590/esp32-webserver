@@ -61,6 +61,7 @@ function page(title, body) {
     return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} — ESP32 Relay</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>${STYLE}</style></head><body>${body}</body></html>`;
 }
 

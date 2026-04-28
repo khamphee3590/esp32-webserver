@@ -65,6 +65,7 @@ function dashboardPage(user) {
     return `<!DOCTYPE html><html lang="th"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dashboard — ESP32 Relay</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
@@ -354,6 +355,10 @@ setInterval(loadDevices,10000);
 `;
 
 app.get('/dash.js', (req, res) => res.type('application/javascript').send(DASH_JS));
+
+// Favicon
+const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#1e293b"/><polygon points="18,4 10,18 16,18 14,28 22,14 16,14" fill="#3b82f6"/></svg>`;
+app.get('/favicon.svg', (req, res) => res.type('image/svg+xml').send(FAVICON_SVG));
 
 // Dashboard (ต้อง login)
 app.get('/', authRequired, (req, res) => res.send(dashboardPage(req.user)));
