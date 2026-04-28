@@ -209,6 +209,25 @@ void clearConfig() {
     ESP.restart();
 }
 
+// ตั้ง flag ให้ boot เข้า AP mode ครั้งถัดไป (ไม่ล้าง config)
+void requestAPMode() {
+    prefs.begin("cfg", false);
+    prefs.putBool("apMode", true);
+    prefs.end();
+    Serial.println("[Button] Short press → เข้า AP mode (config ยังอยู่)");
+    delay(200);
+    ESP.restart();
+}
+
+// ตรวจและล้าง flag
+bool popForceAP() {
+    prefs.begin("cfg", false);
+    bool force = prefs.getBool("apMode", false);
+    if (force) prefs.putBool("apMode", false);
+    prefs.end();
+    return force;
+}
+
 // ======= WiFi Scan =======
 void doWiFiScan() {
     int n = WiFi.scanNetworks();
@@ -521,35 +540,36 @@ void setup() {
     delay(100);
     initIdentity();
 
-    if (loadConfig()) {
-        connectWiFi();
-        if (WiFi.status() != WL_CONNECTED) {
-            // WiFi ล้มเหลวตอน boot → กลับ AP mode ให้ user reconfigure
-            Serial.println("[WiFi] เชื่อมต่อไม่ได้ → กลับ AP mode");
-            startAPMode();
-        } else {
-            setupNormalServer();
-            tunnel.beginSSL(cfg.relayHost, 443, "/tunnel");
-            tunnel.onEvent(onTunnelEvent);
-            tunnel.setReconnectInterval(5000);
-            appState = STATE_NORMAL;
-            Serial.println("[Tunnel] กำลังเชื่อมต่อ Relay...");
-        }
+    bool forceAP = popForceAP(); // short press → boot เข้า AP mode
+    if (forceAP || !loadConfig()) {
+        startAPMode(); // forceAP: config ยังอยู่ / ไม่มี config: setup ใหม่
     } else {
-        // ยังไม่มี config → AP mode
-        startAPMode();
+        // มี config → Normal mode (retry WiFi อัตโนมัติถ้ายังไม่ได้)
+        connectWiFi();
+        setupNormalServer();
+        tunnel.beginSSL(cfg.relayHost, 443, "/tunnel");
+        tunnel.onEvent(onTunnelEvent);
+        tunnel.setReconnectInterval(5000);
+        appState = STATE_NORMAL;
+        Serial.println("[Tunnel] กำลังเชื่อมต่อ Relay...");
     }
 }
 
 // ======= Loop =======
 void loop() {
-    // Reset button: ค้าง RESET_PIN 5 วิ → factory reset
-    static unsigned long btnHold = 0;
+    // BOOT button timing:
+    //   2–4 วิ (short press) → AP mode โดยไม่ล้าง config
+    //   5+ วิ (long press)   → Factory reset (ล้างทุกอย่าง)
+    static unsigned long btnPress = 0;
     if (digitalRead(RESET_PIN) == LOW) {
-        if (!btnHold) btnHold = millis();
-        if (millis() - btnHold >= RESET_HOLD_MS) clearConfig();
+        if (!btnPress) btnPress = millis();
+        if (millis() - btnPress >= RESET_HOLD_MS) clearConfig(); // long press
     } else {
-        btnHold = 0;
+        if (btnPress) {
+            unsigned long held = millis() - btnPress;
+            if (held >= 2000) requestAPMode(); // short press
+        }
+        btnPress = 0;
     }
 
     switch (appState) {
