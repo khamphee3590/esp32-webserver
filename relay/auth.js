@@ -176,24 +176,27 @@ function reset(){
 });
 
 // ======= Auth API =======
-router.post('/api/auth/register', (req, res) => {
+router.post('/api/auth/register', async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'ข้อมูลไม่ครบ' });
     if (password.length < 8)  return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
 
-    if (db.getUserByEmail(email)) return res.status(409).json({ error: 'อีเมลนี้ถูกใช้งานแล้ว' });
+    // ต้องใส่ await ตรงนี้
+    if (await db.getUserByEmail(email)) return res.status(409).json({ error: 'อีเมลนี้ถูกใช้งานแล้ว' });
 
-    db.createUser(email, bcrypt.hashSync(password, 10));
+    // ต้องใส่ await ตรงนี้
+    await db.createUser(email, bcrypt.hashSync(password, 10));
     res.json({ ok: true });
 });
 
-router.post('/api/auth/login', (req, res) => {
+router.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body || {};
-    const user = db.getUserByEmail(email);
+    const user = await db.getUserByEmail(email); // ตัวนี้คุณใส่ไว้ถูกแล้ว
     if (!user || !bcrypt.compareSync(password, user.password_hash))
         return res.status(401).json({ error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+    // MongoDB ใช้ _id (หรือ .id ถ้าเราตั้งไว้) 
+    const token = jwt.sign({ userId: user._id || user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPT);
     res.json({ ok: true });
 });
@@ -214,25 +217,27 @@ router.get('/api/auth/me', (req, res) => {
 
 router.post('/api/auth/forgot-password', async (req, res) => {
     const { email } = req.body || {};
-    const user = db.getUserByEmail(email);
+    const user = await db.getUserByEmail(email);
     if (user) {
         const token   = crypto.randomBytes(32).toString('hex');
         const expires = Date.now() + 60 * 60 * 1000;
-        db.setResetToken(user.id, token, expires);
+        // ต้องใส่ await ตรงนี้
+        await db.setResetToken(user._id || user.id, token, expires);
         try { await sendResetEmail(email, token); } catch (e) { console.error('[Email]', e.message); }
     }
-    res.json({ ok: true }); // ไม่บอกว่า email มีหรือไม่มี เพื่อความปลอดภัย
+    res.json({ ok: true });
 });
 
-router.post('/api/auth/reset-password', (req, res) => {
+router.post('/api/auth/reset-password', async (req, res) => {
     const { token, password } = req.body || {};
     if (!token || !password || password.length < 8)
         return res.status(400).json({ error: 'ข้อมูลไม่ถูกต้อง' });
 
-    const user = db.getUserByResetToken(token);
+    const user = await db.getUserByResetToken(token);
     if (!user) return res.status(400).json({ error: 'ลิงก์หมดอายุหรือไม่ถูกต้อง' });
 
-    db.updatePassword(user.id, bcrypt.hashSync(password, 10));
+    // ต้องใส่ await ตรงนี้
+    await db.updatePassword(user._id || user.id, bcrypt.hashSync(password, 10));
     res.json({ ok: true });
 });
 

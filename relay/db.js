@@ -1,145 +1,93 @@
-const fs   = require('fs');
-const path = require('path');
+const mongoose = require('mongoose');
 
-const DB_FILE = path.join(__dirname, 'db.json');
+// เชื่อมต่อ MongoDB
+mongoose.connect(process.env.DATABASE_URL)
+    .then(() => console.log('✅ Connected to MongoDB Atlas'))
+    .catch(err => console.error('❌ MongoDB connection error:', err));
 
-const DEFAULTS = { users: [], devices: [], device_users: [], gpio_labels: [] };
+// --- วางโครงสร้างข้อมูล (Schemas) ---
+const userSchema = new mongoose.Schema({
+    email: { type: String, unique: true, required: true },
+    password_hash: String,
+    created_at: { type: Number, default: Date.now },
+    reset_token: String,
+    reset_expires: Number
+});
 
-function load() {
-    try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-    catch { return { ...DEFAULTS }; }
-}
+const deviceSchema = new mongoose.Schema({
+    device_id: { type: String, unique: true, required: true },
+    name: String,
+    pairing_code: String,
+    last_seen: Number
+});
 
-function save(data) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
+const deviceUserSchema = new mongoose.Schema({
+    user_id: mongoose.Schema.Types.ObjectId,
+    device_id: String,
+    role: String,
+    joined_at: { type: Number, default: Date.now }
+});
 
-let _db = load();
-const persist = (fn) => { fn(_db); save(_db); };
+const gpioLabelSchema = new mongoose.Schema({
+    device_id: String,
+    pin_name: String,
+    label: String
+});
 
-// ======= Users =======
-function getUserByEmail(email) {
-    return _db.users.find(u => u.email === email) || null;
-}
-
-function getUserById(id) {
-    return _db.users.find(u => u.id === id) || null;
-}
-
-function getUserByResetToken(token) {
-    return _db.users.find(u => u.reset_token === token && u.reset_expires > Date.now()) || null;
-}
-
-function createUser(email, passwordHash) {
-    const id = Date.now();
-    persist(db => db.users.push({ id, email, password_hash: passwordHash, created_at: Date.now(), reset_token: null, reset_expires: null }));
-    return id;
-}
-
-function setResetToken(id, token, expires) {
-    persist(db => {
-        const u = db.users.find(u => u.id === id);
-        if (u) { u.reset_token = token; u.reset_expires = expires; }
-    });
-}
-
-function updatePassword(id, passwordHash) {
-    persist(db => {
-        const u = db.users.find(u => u.id === id);
-        if (u) { u.password_hash = passwordHash; u.reset_token = null; u.reset_expires = null; }
-    });
-}
-
-// ======= Devices =======
-function upsertDevice(deviceId, name, pairingCode) {
-    persist(db => {
-        const idx = db.devices.findIndex(d => d.device_id === deviceId);
-        const rec = { device_id: deviceId, name: name || 'ESP32 Device', pairing_code: pairingCode, last_seen: Date.now() };
-        if (idx >= 0) db.devices[idx] = rec;
-        else db.devices.push(rec);
-    });
-}
-
-function getDeviceByPairingCode(code) {
-    return _db.devices.find(d => d.pairing_code === code) || null;
-}
-
-function touchDevice(deviceId) {
-    persist(db => {
-        const d = db.devices.find(d => d.device_id === deviceId);
-        if (d) d.last_seen = Date.now();
-    });
-}
-
-// ======= Device-User relationships =======
-function getDeviceAccess(userId, deviceId) {
-    return _db.device_users.find(r => r.user_id === userId && r.device_id === deviceId) || null;
-}
-
-function getDevicesByUser(userId) {
-    const pairs = _db.device_users.filter(r => r.user_id === userId);
-    return pairs.map(r => {
-        const d = _db.devices.find(d => d.device_id === r.device_id);
-        return d ? { ...d, role: r.role } : null;
-    }).filter(Boolean);
-}
-
-function pairDevice(userId, deviceId, role = 'owner') {
-    persist(db => db.device_users.push({ user_id: userId, device_id: deviceId, role, joined_at: Date.now() }));
-}
-
-function unpairDevice(userId, deviceId) {
-    persist(db => { db.device_users = db.device_users.filter(r => !(r.user_id === userId && r.device_id === deviceId)); });
-}
-
-// ======= Device Management =======
-function getDeviceById(deviceId) {
-    return _db.devices.find(d => d.device_id === deviceId) || null;
-}
-
-function updateDeviceName(deviceId, name) {
-    persist(db => {
-        const d = db.devices.find(d => d.device_id === deviceId);
-        if (d) d.name = name;
-    });
-}
-
-function getDeviceUsers(deviceId) {
-    return _db.device_users
-        .filter(r => r.device_id === deviceId)
-        .map(r => {
-            const u = _db.users.find(u => u.id === r.user_id);
-            return u ? { userId: u.id, email: u.email, role: r.role, joined_at: r.joined_at } : null;
-        })
-        .filter(Boolean);
-}
-
-function inviteUserByEmail(deviceId, email, role) {
-    const user = getUserByEmail(email);
-    if (!user) return { ok: false, error: 'ไม่พบผู้ใช้ที่มีอีเมลนี้' };
-    if (getDeviceAccess(user.id, deviceId)) return { ok: false, error: 'ผู้ใช้นี้มีสิทธิ์เข้าถึงอยู่แล้ว' };
-    pairDevice(user.id, deviceId, role);
-    return { ok: true };
-}
-
-// ======= GPIO Labels =======
-function getGpioLabels(deviceId) {
-    return _db.gpio_labels.filter(l => l.device_id === deviceId);
-}
-
-function setGpioLabel(deviceId, pinName, label) {
-    persist(db => {
-        const idx = db.gpio_labels.findIndex(l => l.device_id === deviceId && l.pin_name === pinName);
-        if (idx >= 0) db.gpio_labels[idx].label = label;
-        else db.gpio_labels.push({ device_id: deviceId, pin_name: pinName, label });
-    });
-}
+const User = mongoose.model('User', userSchema);
+const Device = mongoose.model('Device', deviceSchema);
+const DeviceUser = mongoose.model('DeviceUser', deviceUserSchema);
+const GpioLabel = mongoose.model('GpioLabel', gpioLabelSchema);
 
 module.exports = {
-    getUserByEmail, getUserById, getUserByResetToken,
-    createUser, setResetToken, updatePassword,
-    upsertDevice, getDeviceByPairingCode, touchDevice,
-    getDeviceById, updateDeviceName, getDeviceUsers, inviteUserByEmail,
-    getDeviceAccess, getDevicesByUser, pairDevice, unpairDevice,
-    getGpioLabels, setGpioLabel,
+    // Users
+    getUserByEmail: async (email) => await User.findOne({ email }),
+    getUserById: async (id) => await User.findById(id),
+    getUserByResetToken: async (token) => await User.findOne({ reset_token: token, reset_expires: { $gt: Date.now() } }),
+    createUser: async (email, passwordHash) => {
+        const user = new User({ email, password_hash: passwordHash });
+        await user.save();
+        return user._id; // ส่ง ID ของ MongoDB กลับไป
+    },
+    setResetToken: async (id, token, expires) => await User.findByIdAndUpdate(id, { reset_token: token, reset_expires: expires }),
+    updatePassword: async (id, passwordHash) => await User.findByIdAndUpdate(id, { password_hash: passwordHash, reset_token: null, reset_expires: null }),
+
+    // Devices
+    upsertDevice: async (deviceId, name, pairingCode) => {
+        await Device.findOneAndUpdate(
+            { device_id: deviceId },
+            { name: name || 'ESP32 Device', pairing_code: pairingCode, last_seen: Date.now() },
+            { upsert: true }
+        );
+    },
+    getDeviceByPairingCode: async (code) => await Device.findOne({ pairing_code: code }),
+    touchDevice: async (deviceId) => await Device.findOneAndUpdate({ device_id: deviceId }, { last_seen: Date.now() }),
+    getDeviceById: async (deviceId) => await Device.findOne({ device_id: deviceId }),
+    updateDeviceName: async (deviceId, name) => await Device.findOneAndUpdate({ device_id: deviceId }, { name }),
+
+    // Device-User
+    getDeviceAccess: async (userId, deviceId) => await DeviceUser.findOne({ user_id: userId, device_id: deviceId }),
+    getDevicesByUser: async (userId) => {
+        const relations = await DeviceUser.find({ user_id: userId });
+        const deviceIds = relations.map(r => r.device_id);
+        const devices = await Device.find({ device_id: { $in: deviceIds } });
+        return devices.map(d => {
+            const rel = relations.find(r => r.device_id === d.device_id);
+            return { ...d.toObject(), role: rel.role };
+        });
+    },
+    pairDevice: async (userId, deviceId, role = 'owner') => {
+        await new DeviceUser({ user_id: userId, device_id: deviceId, role }).save();
+    },
+    unpairDevice: async (userId, deviceId) => await DeviceUser.findOneAndDelete({ user_id: userId, device_id: deviceId }),
+
+    // GPIO Labels
+    getGpioLabels: async (deviceId) => await GpioLabel.find({ device_id: deviceId }),
+    setGpioLabel: async (deviceId, pinName, label) => {
+        await GpioLabel.findOneAndUpdate(
+            { device_id: deviceId, pin_name: pinName },
+            { label },
+            { upsert: true }
+        );
+    }
 };

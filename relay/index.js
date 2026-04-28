@@ -234,7 +234,7 @@ footer{text-align:center;padding:20px;color:#334155;font-size:.75rem;border-top:
 wss.on('connection', (ws, req) => {
     let deviceId = null;
 
-    ws.on('message', (raw) => {
+    ws.on('message', async (raw) => {
         const text     = raw.toString();
         const nl       = text.indexOf('\n');
         const jsonPart = nl >= 0 ? text.slice(0, nl) : text;
@@ -247,7 +247,7 @@ wss.on('connection', (ws, req) => {
             deviceId = msg.deviceId;
             if (devices.has(deviceId)) devices.get(deviceId).terminate();
             devices.set(deviceId, ws);
-            db.upsertDevice(deviceId, msg.name, msg.pairingCode);
+            await db.upsertDevice(deviceId, msg.name, msg.pairingCode);
             console.log(`[Device] ${deviceId} "${msg.name || ''}" connected (total: ${devices.size})`);
             return;
         }
@@ -260,12 +260,10 @@ wss.on('connection', (ws, req) => {
         }
     });
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
         if (deviceId && devices.get(deviceId) === ws) {
             devices.delete(deviceId);
-            db.touchDevice(deviceId);
-            // ส่ง 503 ทันทีสำหรับ pending requests ของ device นี้
-            // ไม่ต้องรอ timeout 10 วิ
+            await db.touchDevice(deviceId);
             for (const [pid, entry] of pending) {
                 if (entry.deviceId === deviceId) {
                     clearTimeout(entry.timer);
@@ -282,7 +280,6 @@ wss.on('connection', (ws, req) => {
 
 // ======= HTTP Routes =======
 
-// Dashboard JS (public — เป็นแค่ฟังก์ชัน ไม่มีข้อมูลส่วนตัว)
 const DASH_JS = `
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 function showMsg(t,c){var e=document.getElementById('pair-msg');e.textContent=t;e.className='msg-box '+(c?'msg-'+c:'');}
@@ -364,8 +361,8 @@ app.get('/healthz', (req, res) => {
 });
 
 // Devices API
-app.get('/api/devices', authRequired, (req, res) => {
-    const rows = db.getDevicesByUser(req.user.userId);
+app.get('/api/devices', authRequired, async (req, res) => {
+    const rows = await db.getDevicesByUser(req.user.userId);
     const result = rows.map(d => ({
         ...d,
         online: devices.has(d.device_id) && devices.get(d.device_id).readyState === WebSocket.OPEN,
@@ -373,28 +370,28 @@ app.get('/api/devices', authRequired, (req, res) => {
     res.json(result);
 });
 
-app.post('/api/devices/pair', authRequired, (req, res) => {
+app.post('/api/devices/pair', authRequired, async (req, res) => {
     const { pairingCode } = req.body || {};
     if (!pairingCode) return res.status(400).json({ error: 'กรุณาใส่ Pairing Code' });
 
-    const device = db.getDeviceByPairingCode(pairingCode);
+    const device = await db.getDeviceByPairingCode(pairingCode);
     if (!device) return res.status(404).json({ error: 'Pairing Code ไม่ถูกต้องหรือ ESP32 ยังไม่ได้เชื่อมต่อ' });
 
-    if (db.getDeviceAccess(req.user.userId, device.device_id))
+    if (await db.getDeviceAccess(req.user.userId, device.device_id))
         return res.status(409).json({ error: 'อุปกรณ์นี้ผูกกับบัญชีของคุณอยู่แล้ว' });
 
-    db.pairDevice(req.user.userId, device.device_id, 'owner');
+    await db.pairDevice(req.user.userId, device.device_id, 'owner');
     res.json({ ok: true, device: { device_id: device.device_id, name: device.name } });
 });
 
-app.delete('/api/devices/:deviceId', authRequired, (req, res) => {
-    db.unpairDevice(req.user.userId, req.params.deviceId);
+app.delete('/api/devices/:deviceId', authRequired, async (req, res) => {
+    await db.unpairDevice(req.user.userId, req.params.deviceId);
     res.json({ ok: true });
 });
 
 // Device proxy (ต้อง login + มีสิทธิ์เข้าถึง device)
-app.use('/d/:deviceId', authRequired, (req, res, next) => {
-    const access = db.getDeviceAccess(req.user.userId, req.params.deviceId);
+app.use('/d/:deviceId', authRequired, async (req, res, next) => {
+    const access = await db.getDeviceAccess(req.user.userId, req.params.deviceId);
     if (!access) {
         const isNavigation = req.headers['sec-fetch-mode'] === 'navigate';
         return isNavigation
@@ -403,7 +400,7 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
     }
     req.deviceRole = access.role;
     next();
-}, (req, res) => {
+}, async (req, res) => {
     const { deviceId } = req.params;
     const subPath    = req.path;
     const isOwner    = req.deviceRole === 'owner';
@@ -414,12 +411,12 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
     // GPIO Labels
     if (subPath === '/api/gpio/labels') {
         if (req.method === 'GET')
-            return res.json(db.getGpioLabels(deviceId));
+            return res.json(await db.getGpioLabels(deviceId));
         if (req.method === 'PUT') {
             if (!canControl) return res.status(403).json({ error: 'Viewer ไม่มีสิทธิ์แก้ไข label' });
             const { pin, label } = req.body || {};
             if (!pin) return res.status(400).json({ error: 'pin required' });
-            db.setGpioLabel(deviceId, pin, label ?? '');
+            await db.setGpioLabel(deviceId, pin, label ?? '');
             return res.json({ ok: true });
         }
     }
@@ -427,12 +424,12 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
     // Device Info
     if (subPath === '/api/device/info') {
         if (req.method === 'GET') {
-            const d = db.getDeviceById(deviceId);
+            const d = await db.getDeviceById(deviceId);
             return res.json({ ...d, role: req.deviceRole });
         }
         if (req.method === 'PUT' && isOwner) {
             const { name } = req.body || {};
-            if (name?.trim()) db.updateDeviceName(deviceId, name.trim());
+            if (name?.trim()) await db.updateDeviceName(deviceId, name.trim());
             return res.json({ ok: true });
         }
     }
@@ -441,11 +438,11 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
     if (subPath === '/api/device/users') {
         if (!isOwner) return res.status(403).json({ error: 'Owner only' });
         if (req.method === 'GET')
-            return res.json(db.getDeviceUsers(deviceId));
+            return res.json(await db.getDeviceUsers(deviceId));
         if (req.method === 'POST') {
             const { email, role } = req.body || {};
             if (!email) return res.status(400).json({ error: 'email required' });
-            const result = db.inviteUserByEmail(deviceId, email, role || 'editor');
+            const result = await db.inviteUserByEmail(deviceId, email, role || 'editor');
             return result.ok ? res.json({ ok: true }) : res.status(400).json({ error: result.error });
         }
     }
@@ -456,7 +453,7 @@ app.use('/d/:deviceId', authRequired, (req, res, next) => {
         if (!isOwner) return res.status(403).json({ error: 'Owner only' });
         const targetId = Number(removeMatch[1]);
         if (targetId === req.user.userId) return res.status(400).json({ error: 'ไม่สามารถลบตัวเองได้' });
-        db.unpairDevice(targetId, deviceId);
+        await db.unpairDevice(targetId, deviceId);
         return res.json({ ok: true });
     }
 
