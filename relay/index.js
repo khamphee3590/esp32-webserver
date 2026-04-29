@@ -9,15 +9,9 @@ const fs           = require('fs');
 const db           = require('./db');
 const { router: authRouter, JWT_SECRET } = require('./auth');
 
-// Pre-read ESP32 dashboard HTML once at startup
+// ESP32 dashboard HTML served by the relay.
 const ESP32_DASHBOARD_PATH = path.resolve(__dirname, '..', 'data', 'index.html');
-let esp32DashboardHtml = '';
-try {
-    esp32DashboardHtml = fs.readFileSync(ESP32_DASHBOARD_PATH, 'utf8');
-    console.log('[Relay] ESP32 dashboard loaded:', ESP32_DASHBOARD_PATH);
-} catch (e) {
-    console.error('[Relay] Cannot load ESP32 dashboard:', e.message);
-}
+console.log('[Relay] ESP32 dashboard path:', ESP32_DASHBOARD_PATH);
 
 const app        = express();
 const httpServer = http.createServer(app);
@@ -76,6 +70,19 @@ a:hover{background:#172554}</style>
 // Dashboard page — serves React-based static file
 function dashboardPage() {
     return path.join(__dirname, 'public', 'dashboard.html');
+}
+
+function sendEsp32Dashboard(res) {
+    let html;
+    try {
+        html = fs.readFileSync(ESP32_DASHBOARD_PATH, 'utf8');
+    } catch (e) {
+        console.error('[Relay] Cannot load ESP32 dashboard:', e.message);
+        return res.status(503).send('Dashboard file not found');
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.type('html').send(html);
 }
 
 // ======= WebSocket: รับการเชื่อมต่อจาก ESP32 =======
@@ -205,8 +212,7 @@ app.use('/d/:deviceId', authRequired, wrap(async (req, res) => {
     // ======= Serve ESP32 dashboard HTML directly from relay =======
     if ((subPath === '/' || subPath === '' || subPath === '/index.html') && req.method === 'GET') {
         console.log('[Device]', deviceId, 'serving dashboard HTML, role:', access.role);
-        if (!esp32DashboardHtml) return res.status(503).send('Dashboard file not found');
-        return res.type('html').send(esp32DashboardHtml);
+        return sendEsp32Dashboard(res);
     }
 
     // ======= Relay-managed routes =======

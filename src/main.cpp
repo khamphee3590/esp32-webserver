@@ -490,7 +490,9 @@ void connectWiFi() {
 }
 
 void setupNormalServer() {
-    webServer.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+    webServer.serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html")
+        .setCacheControl("no-store");
 
     webServer.on("/api/status", HTTP_GET, [](AsyncWebServerRequest* req) {
         String j = "{\"status\":\"ok\","
