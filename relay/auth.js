@@ -4,6 +4,7 @@ const bcrypt     = require('bcryptjs');
 const jwt        = require('jsonwebtoken');
 const crypto     = require('crypto');
 const nodemailer = require('nodemailer');
+const path       = require('path');
 const db = require('./db');
 
 const router     = express.Router();
@@ -40,98 +41,56 @@ async function sendResetEmail(email, token) {
 }
 
 // ======= HTML Pages =======
-const STYLE = `*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.card{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:32px;width:100%;max-width:400px}
-h1{color:#3b82f6;font-size:1.4rem;margin-bottom:6px}
-.sub{color:#64748b;font-size:.85rem;margin-bottom:24px}
-label{display:block;font-size:.75rem;color:#64748b;text-transform:uppercase;margin:14px 0 4px}
-input{width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:10px 12px;border-radius:8px;font-size:.9rem;outline:none}
-input:focus{border-color:#3b82f6}
-.btn{width:100%;background:#3b82f6;color:#fff;border:none;padding:12px;border-radius:8px;font-size:.95rem;cursor:pointer;margin-top:20px;font-weight:600}
-.btn:hover{background:#2563eb}
-.msg{padding:10px 14px;border-radius:8px;font-size:.85rem;text-align:center;margin-top:12px;display:none}
-.err{background:#450a0a;color:#f87171;display:block}
-.ok{background:#052e16;color:#4ade80;display:block}
-.inf{background:#172554;color:#93c5fd;display:block}
-.links{display:flex;justify-content:space-between;margin-top:16px;font-size:.8rem}
-.links a{color:#3b82f6;text-decoration:none}.links a:hover{text-decoration:underline}`;
+const LIGHT_STYLE = `
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f7f7f7;color:#111;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.wrap{width:100%;max-width:380px}
+.brand{text-align:center;margin-bottom:32px}
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border:1.5px solid #e4e4e4;border-radius:9px;font-size:1.1rem;margin-bottom:12px;background:#fff}
+.brand-name{font-size:.875rem;font-weight:600}
+.brand-sub{font-size:.75rem;color:#888;margin-top:2px}
+.card{background:#fff;border:1px solid #e4e4e4;border-radius:12px;padding:28px 24px}
+h2{font-size:.95rem;font-weight:600;margin-bottom:4px}
+.sub{font-size:.78rem;color:#888;margin-bottom:20px}
+label{display:block;font-size:.72rem;font-weight:500;margin:13px 0 4px}
+input{width:100%;background:#f7f7f7;border:1px solid #e4e4e4;color:#111;padding:10px 12px;border-radius:7px;font-size:.875rem;outline:none}
+input:focus{border-color:#111;background:#fff}
+.btn{width:100%;background:#111;color:#fff;border:none;padding:11px;border-radius:7px;font-size:.875rem;cursor:pointer;margin-top:16px;font-weight:600}
+.btn:hover{opacity:.85}
+.msg{padding:10px 12px;border-radius:7px;font-size:.78rem;margin-top:10px;display:none}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;display:block}
+.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;display:block}
+.inf{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;display:block}
+.links{display:flex;justify-content:space-between;margin-top:14px;font-size:.75rem}
+.links a{color:#888;text-decoration:none}.links a:hover{color:#111}
+footer{text-align:center;font-size:.7rem;color:#ccc;margin-top:20px}`;
 
-function page(title, body) {
+function lightPage(title, body) {
     return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} — ESP32 Relay</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<style>${STYLE}</style></head><body>${body}</body></html>`;
+<style>${LIGHT_STYLE}</style></head><body>${body}<footer>ESP32 Relay — 2026</footer></body></html>`;
 }
 
-router.get('/login', (req, res) => res.send(page('เข้าสู่ระบบ', `
-<div class="card">
-  <h1>ESP32 Relay</h1><div class="sub">เข้าสู่ระบบเพื่อจัดการอุปกรณ์</div>
-  <label>อีเมล</label><input id="email" type="email" placeholder="your@email.com" />
-  <label>รหัสผ่าน</label><input id="pass" type="password" placeholder="••••••••" />
-  <div id="msg" class="msg"></div>
-  <button class="btn" onclick="login()">เข้าสู่ระบบ</button>
-  <div class="links">
-    <a href="/register">สมัครสมาชิก</a>
-    <a href="/forgot-password">ลืมรหัสผ่าน?</a>
-  </div>
-</div>
-<script>
-var next = new URLSearchParams(location.search).get('next') || '/';
-function showMsg(t,c){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;}
-function login(){
-  var email=document.getElementById('email').value.trim();
-  var pass=document.getElementById('pass').value;
-  if(!email||!pass){showMsg('กรุณากรอกข้อมูลให้ครบ','err');return;}
-  showMsg('กำลังเข้าสู่ระบบ...','inf');
-  fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({email,password:pass})})
-  .then(function(r){return r.json();}).then(function(d){
-    if(d.ok) location.href=next;
-    else showMsg(d.error||'เกิดข้อผิดพลาด','err');
-  }).catch(function(){showMsg('เชื่อมต่อไม่ได้','err');});
-}
-document.addEventListener('keydown',function(e){if(e.key==='Enter')login();});
-</script>`)));
+router.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
 
-router.get('/register', (req, res) => res.send(page('สมัครสมาชิก', `
-<div class="card">
-  <h1>สมัครสมาชิก</h1><div class="sub">สร้างบัญชีสำหรับจัดการอุปกรณ์ ESP32</div>
-  <label>อีเมล</label><input id="email" type="email" placeholder="your@email.com" />
-  <label>รหัสผ่าน</label><input id="pass" type="password" placeholder="อย่างน้อย 8 ตัวอักษร" />
-  <label>ยืนยันรหัสผ่าน</label><input id="pass2" type="password" placeholder="••••••••" />
-  <div id="msg" class="msg"></div>
-  <button class="btn" onclick="register()">สมัครสมาชิก</button>
-  <div class="links"><a href="/login">มีบัญชีแล้ว? เข้าสู่ระบบ</a></div>
-</div>
-<script>
-function showMsg(t,c){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;}
-function register(){
-  var email=document.getElementById('email').value.trim();
-  var pass=document.getElementById('pass').value;
-  var pass2=document.getElementById('pass2').value;
-  if(!email||!pass){showMsg('กรุณากรอกข้อมูลให้ครบ','err');return;}
-  if(pass.length<8){showMsg('รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร','err');return;}
-  if(pass!==pass2){showMsg('รหัสผ่านไม่ตรงกัน','err');return;}
-  showMsg('กำลังสมัคร...','inf');
-  fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({email,password:pass})})
-  .then(function(r){return r.json();}).then(function(d){
-    if(d.ok){showMsg('สมัครสำเร็จ! กำลังพาไปหน้า Login...','ok');setTimeout(function(){location.href='/login';},1500);}
-    else showMsg(d.error||'เกิดข้อผิดพลาด','err');
-  }).catch(function(){showMsg('เชื่อมต่อไม่ได้','err');});
-}
-</script>`)));
+router.get('/register', (req, res) => {
+    res.redirect('/login');
+});
 
-router.get('/forgot-password', (req, res) => res.send(page('ลืมรหัสผ่าน', `
+router.get('/forgot-password', (req, res) => res.send(lightPage('ลืมรหัสผ่าน', `
+<div class="wrap">
+<div class="brand"><div class="brand-mark">⚡</div><div class="brand-name">ESP32 Relay</div></div>
 <div class="card">
-  <h1>ลืมรหัสผ่าน</h1><div class="sub">ใส่อีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน</div>
+  <h2>ลืมรหัสผ่าน</h2><div class="sub">ใส่อีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน</div>
   <label>อีเมล</label><input id="email" type="email" placeholder="your@email.com" />
   <div id="msg" class="msg"></div>
   <button class="btn" onclick="send()">ส่งลิงก์รีเซ็ต</button>
   <div class="links"><a href="/login">← กลับ</a></div>
-</div>
+</div></div>
 <script>
 function showMsg(t,c){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;}
 function send(){
@@ -149,14 +108,16 @@ function send(){
 router.get('/reset-password', (req, res) => {
     const { token } = req.query;
     if (!token) return res.redirect('/forgot-password');
-    res.send(page('ตั้งรหัสผ่านใหม่', `
+    res.send(lightPage('ตั้งรหัสผ่านใหม่', `
+<div class="wrap">
+<div class="brand"><div class="brand-mark">⚡</div><div class="brand-name">ESP32 Relay</div></div>
 <div class="card">
-  <h1>ตั้งรหัสผ่านใหม่</h1><div class="sub">ใส่รหัสผ่านใหม่ของคุณ</div>
+  <h2>ตั้งรหัสผ่านใหม่</h2><div class="sub">ใส่รหัสผ่านใหม่ของคุณ</div>
   <label>รหัสผ่านใหม่</label><input id="pass" type="password" placeholder="อย่างน้อย 8 ตัวอักษร" />
-  <label>ยืนยันรหัสผ่าน</label><input id="pass2" type="password" placeholder="••••••••" />
+  <label>ยืนยันรหัสผ่าน</label><input id="pass2" type="password" placeholder="กรอกอีกครั้ง" />
   <div id="msg" class="msg"></div>
   <button class="btn" onclick="reset()">ตั้งรหัสผ่านใหม่</button>
-</div>
+</div></div>
 <script>
 function showMsg(t,c){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+c;}
 function reset(){
@@ -166,7 +127,7 @@ function reset(){
   if(pass!==pass2){showMsg('รหัสผ่านไม่ตรงกัน','err');return;}
   showMsg('กำลังบันทึก...','inf');
   fetch('/api/auth/reset-password',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({token:'${token}',password:pass})})
+    body:JSON.stringify({token:${JSON.stringify(token)},password:pass})})
   .then(function(r){return r.json();}).then(function(d){
     if(d.ok){showMsg('เปลี่ยนรหัสผ่านสำเร็จ! กำลังพาไปหน้า Login...','ok');
       setTimeout(function(){location.href='/login';},1500);}

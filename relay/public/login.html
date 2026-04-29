@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Relay — เข้าสู่ระบบ</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #f7f7f7;
+      --surface: #ffffff;
+      --border:  #e4e4e4;
+      --text:    #111111;
+      --muted:   #888888;
+      --dim:     #c8c8c8;
+      --blue:    #2563eb;
+      --green:   #15803d;
+      --red:     #b91c1c;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+    .wrap { width: 100%; max-width: 360px; }
+    .brand { text-align: center; margin-bottom: 40px; }
+    .brand-mark {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 40px; height: 40px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      font-size: 1.2rem; margin-bottom: 16px; background: var(--surface);
+    }
+    .brand-name { font-size: .9rem; font-weight: 600; letter-spacing: -.01em; }
+    .brand-sub  { font-size: .78rem; color: var(--muted); margin-top: 3px; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 28px 24px;
+      animation: fadeUp .3s ease;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    .tab {
+      flex: 1; background: none; border: none;
+      padding-bottom: 12px; font-size: .82rem; font-weight: 500;
+      color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--text); }
+    .form { display: flex; flex-direction: column; gap: 14px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field-label { font-size: .75rem; font-weight: 500; color: var(--text); }
+    .field-input {
+      width: 100%; height: 42px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+      padding: 0 36px 0 12px; font-size: .875rem; color: var(--text);
+      font-family: 'Inter', sans-serif; outline: none; transition: border-color .15s;
+    }
+    .field-input:focus { border-color: var(--text); background: var(--surface); }
+    .field-input.err { border-color: var(--red); }
+    .field-input::placeholder { color: var(--dim); }
+    .input-wrap { position: relative; }
+    .pw-eye {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--dim); cursor: pointer;
+      font-size: .8rem; padding: 4px; border-radius: 4px; transition: color .15s;
+    }
+    .pw-eye:hover { color: var(--muted); }
+    .field-err { font-size: .7rem; color: var(--red); }
+    .forgot { text-align: right; }
+    .forgot a { font-size: .75rem; color: var(--muted); text-decoration: none; }
+    .forgot a:hover { color: var(--text); }
+    .strength { display: flex; flex-direction: column; gap: 4px; }
+    .strength-bars { display: flex; gap: 3px; }
+    .s-bar { flex: 1; height: 2px; background: var(--border); border-radius: 99px; transition: background .2s; }
+    .s-bar.w { background: var(--red); }
+    .s-bar.m { background: #d97706; }
+    .s-bar.s { background: var(--green); }
+    .strength-lbl { font-size: .68rem; color: var(--muted); }
+    .btn-submit {
+      width: 100%; height: 42px;
+      background: var(--text); color: #fff;
+      border: none; border-radius: 7px;
+      font-size: .875rem; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: opacity .15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 2px;
+    }
+    .btn-submit:hover:not(:disabled) { opacity: .85; }
+    .btn-submit:disabled { opacity: .4; cursor: not-allowed; }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .alert { font-size: .78rem; padding: 10px 12px; border-radius: 7px; border: 1px solid; }
+    .alert.err { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
+    .alert.ok  { background: #f0fdf4; border-color: #bbf7d0; color: #14532d; }
+    .terms { font-size: .7rem; color: var(--muted); text-align: center; line-height: 1.6; margin-top: 2px; }
+    .terms a { color: var(--muted); text-decoration: none; }
+    .terms a:hover { color: var(--text); }
+    .success { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 0; text-align: center; }
+    .success-icon { font-size: 2rem; animation: pop .4s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .success h3 { font-size: .95rem; font-weight: 600; }
+    .success p  { font-size: .78rem; color: var(--muted); }
+    footer { text-align: center; font-size: .7rem; color: var(--dim); margin-top: 24px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const params = new URLSearchParams(window.location.search);
+const NEXT = params.get('next') || '/';
+
+function pwScore(pw) {
+  let s = 0;
+  if (pw.length >= 8) s++;
+  if (/[A-Z]/.test(pw)) s++;
+  if (/[0-9]/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  return s;
+}
+
+function Strength({ pw }) {
+  const s = pwScore(pw);
+  const cls = s <= 1 ? 'w' : s <= 2 ? 'm' : 's';
+  const lbl = ['','อ่อน','ปานกลาง','ดี','แข็งแกร่ง'][s];
+  if (!pw) return null;
+  return (
+    <div className="strength">
+      <div className="strength-bars">{[1,2,3,4].map(i => <div key={i} className={'s-bar' + (i<=s?' '+cls:'')}></div>)}</div>
+      <span className="strength-lbl">ความปลอดภัย: {lbl}</span>
+    </div>
+  );
+}
+
+function LoginForm({ onSuccess }) {
+  const [email, setEmail] = useState('');
+  const [pw, setPw]       = useState('');
+  const [show, setShow]   = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]    = useState('');
+  const [t, setT]            = useState({});
+
+  const eErr = t.e && !/\S+@\S+/.test(email) ? 'อีเมลไม่ถูกต้อง' : '';
+  const pErr = t.p && pw.length < 6 ? 'รหัสผ่านต้องมีอย่างน้อย 6 ตัว' : '';
+
+  const submit = async e => {
+    e.preventDefault();
+    setT({e:true, p:true});
+    if (eErr || pErr || !email || !pw) return;
+    setLoading(true);
+    setError('');
+    try {
+      const r = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw })
+      });
+      const d = await r.json();
+      if (d.ok) { onSuccess(); }
+      else setError(d.error || 'เกิดข้อผิดพลาด');
+    } catch { setError('เชื่อมต่อไม่ได้'); }
+    setLoading(false);
+  };
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      {error && <div className="alert err">{error}</div>}
+      <div className="field">
+        <label className="field-label">อีเมล</label>
+        <input className={'field-input' + (eErr?' err':'')} type="email" placeholder="your@email.com"
+          value={email} onChange={e=>setEmail(e.target.value)} onBlur={()=>setT(t=>({...t,e:true}))} autoComplete="email" />
+        {eErr && <span className="field-err">{eErr}</span>}
+      </div>
+      <div className="field">
+        <label className="field-label">รหัสผ่าน</label>
+        <div className="input-wrap">
+          <input className={'field-input' + (pErr?' err':'')} type={show?'text':'password'}
+            placeholder="••••••••" value={pw}
+            onChange={e=>setPw(e.target.value)} onBlur={()=>setT(t=>({...t,p:true}))} autoComplete="current-password" />
+          <button type="button" className="pw-eye" onClick={()=>setShow(s=>!s)} tabIndex={-1}>{show?'hide':'show'}</button>
+        </div>
+        {pErr && <span className="field-err">{pErr}</span>}
+      </div>
+      <div className="forgot"><a href="/forgot-password">ลืมรหัสผ่าน?</a></div>
+      <button type="submit" className="btn-submit" disabled={loading}>
+        {loading ? <span className="spinner"></span> : 'เข้าสู่ระบบ'}
+      </button>
+    </form>
+  );
+}
+
+function RegisterForm({ onSuccess }) {
+  const [email, setEmail] = useState('');
+  const [pw, setPw]       = useState('');
+  const [pw2, setPw2]     = useState('');
+  const [show, setShow]   = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]    = useState('');
+  const [t, setT]            = useState({});
+
+  const eErr  = t.e  && !/\S+@\S+/.test(email) ? 'อีเมลไม่ถูกต้อง' : '';
+  const pErr  = t.p  && pw.length < 8 ? 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว' : '';
+  const p2Err = t.p2 && pw !== pw2    ? 'รหัสผ่านไม่ตรงกัน' : '';
+
+  const submit = async e => {
+    e.preventDefault();
+    setT({e:true, p:true, p2:true});
+    if (eErr || pErr || p2Err || !email || !pw || !pw2) return;
+    setLoading(true);
+    setError('');
+    try {
+      const r = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pw })
+      });
+      const d = await r.json();
+      if (d.ok) { onSuccess(); }
+      else setError(d.error || 'เกิดข้อผิดพลาด');
+    } catch { setError('เชื่อมต่อไม่ได้'); }
+    setLoading(false);
+  };
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      {error && <div className="alert err">{error}</div>}
+      <div className="field">
+        <label className="field-label">อีเมล</label>
+        <input className={'field-input' + (eErr?' err':'')} type="email" placeholder="your@email.com"
+          value={email} onChange={e=>setEmail(e.target.value)} onBlur={()=>setT(t=>({...t,e:true}))} />
+        {eErr && <span className="field-err">{eErr}</span>}
+      </div>
+      <div className="field">
+        <label className="field-label">รหัสผ่าน</label>
+        <div className="input-wrap">
+          <input className={'field-input' + (pErr?' err':'')} type={show?'text':'password'}
+            placeholder="อย่างน้อย 8 ตัวอักษร" value={pw}
+            onChange={e=>setPw(e.target.value)} onBlur={()=>setT(t=>({...t,p:true}))} />
+          <button type="button" className="pw-eye" onClick={()=>setShow(s=>!s)} tabIndex={-1}>{show?'hide':'show'}</button>
+        </div>
+        {pErr && <span className="field-err">{pErr}</span>}
+        <Strength pw={pw} />
+      </div>
+      <div className="field">
+        <label className="field-label">ยืนยันรหัสผ่าน</label>
+        <div className="input-wrap">
+          <input className={'field-input' + (p2Err?' err':'')} type={show?'text':'password'}
+            placeholder="กรอกอีกครั้ง" value={pw2}
+            onChange={e=>setPw2(e.target.value)} onBlur={()=>setT(t=>({...t,p2:true}))} />
+        </div>
+        {p2Err && <span className="field-err">{p2Err}</span>}
+      </div>
+      <button type="submit" className="btn-submit" disabled={loading}>
+        {loading ? <span className="spinner"></span> : 'สร้างบัญชี'}
+      </button>
+      <p className="terms">การสมัครถือว่ายอมรับ <a href="#">เงื่อนไขการใช้งาน</a></p>
+    </form>
+  );
+}
+
+function App() {
+  const [tab, setTab]       = useState('login');
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (success) {
+      const t = setTimeout(() => { window.location.href = NEXT; }, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [success]);
+
+  return (
+    <div className="wrap">
+      <div className="brand">
+        <div className="brand-mark">⚡</div>
+        <div className="brand-name">ESP32 Relay</div>
+        <div className="brand-sub">ควบคุม IoT จากที่นี่</div>
+      </div>
+      <div className="card">
+        {success
+          ? <div className="success">
+              <div className="success-icon">✓</div>
+              <h3>{tab === 'login' ? 'เข้าสู่ระบบสำเร็จ' : 'สร้างบัญชีสำเร็จ'}</h3>
+              <p>กำลังพาไปยัง Dashboard…</p>
+            </div>
+          : <>
+              <div className="tabs">
+                <button className={'tab' + (tab==='login'?' active':'')} onClick={()=>setTab('login')}>เข้าสู่ระบบ</button>
+                <button className={'tab' + (tab==='register'?' active':'')} onClick={()=>setTab('register')}>สมัครสมาชิก</button>
+              </div>
+              {tab === 'login'
+                ? <LoginForm onSuccess={()=>setSuccess(true)} />
+                : <RegisterForm onSuccess={()=>setSuccess(true)} />}
+            </>
+        }
+      </div>
+      <footer>ESP32 Relay — 2026</footer>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

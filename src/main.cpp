@@ -81,61 +81,70 @@ const char SETUP_HTML[] PROGMEM = R"rawliteral(
 <title>ESP32 Setup</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
-header{background:#1e293b;padding:20px 24px;border-bottom:2px solid #3b82f6;text-align:center}
-h1{color:#3b82f6;font-size:1.5rem}header p{color:#94a3b8;font-size:.85rem;margin-top:4px}
-main{padding:24px;display:flex;flex-direction:column;gap:16px;max-width:480px;margin:0 auto}
-.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:20px}
-h2{color:#3b82f6;font-size:1rem;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid #334155}
+body{font-family:'Segoe UI',sans-serif;background:#f7f7f7;color:#111;min-height:100vh}
+header{background:#fff;padding:18px 24px;border-bottom:1px solid #e4e4e4;text-align:center}
+.brand-mark{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1.5px solid #e4e4e4;border-radius:9px;font-size:1.1rem;margin-bottom:10px;background:#f7f7f7}
+h1{font-size:1rem;font-weight:600}header p{color:#888;font-size:.78rem;margin-top:2px}
+main{padding:20px;display:flex;flex-direction:column;gap:14px;max-width:440px;margin:0 auto}
+.card{background:#fff;border:1px solid #e4e4e4;border-radius:10px;padding:18px}
+h2{font-size:.8rem;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
 .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
-.lbl{font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
-.val{font-size:.9rem;font-weight:600;font-family:monospace;color:#f1f5f9}
-.pcode{font-size:2.2rem;font-weight:700;color:#3b82f6;letter-spacing:.35em;text-align:center;padding:14px 0}
-.hint{font-size:.72rem;color:#475569;text-align:center;margin-top:2px}
-label{display:block;font-size:.72rem;color:#64748b;text-transform:uppercase;margin:12px 0 4px}
-input,select{width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:10px 12px;border-radius:8px;font-size:.9rem;outline:none}
-input:focus,select:focus{border-color:#3b82f6}
-.btn{width:100%;background:#3b82f6;color:#fff;border:none;padding:12px;border-radius:8px;font-size:.95rem;cursor:pointer;margin-top:4px}
-.btn:hover{background:#2563eb}
-.btn-sm{background:#334155;color:#94a3b8;border:none;padding:7px 14px;border-radius:7px;font-size:.8rem;cursor:pointer;margin-top:10px}
-.btn-sm:hover{background:#475569;color:#e2e8f0}
-.msg{padding:10px 14px;border-radius:8px;font-size:.85rem;text-align:center;display:none;margin-top:4px}
-.err{background:#450a0a;color:#f87171;display:block}
-.ok{background:#052e16;color:#4ade80;display:block}
-.inf{background:#172554;color:#93c5fd;display:block}
-footer{text-align:center;padding:16px;color:#334155;font-size:.75rem}
+.lbl{font-size:.7rem;color:#888;text-transform:uppercase;letter-spacing:.04em}
+.val{font-size:.85rem;font-weight:600;font-family:monospace;color:#111}
+.pcode-box{border:1px solid #e4e4e4;border-radius:7px;padding:12px;text-align:center;margin-top:10px}
+.pcode-lbl{font-size:.62rem;color:#888;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.pcode{font-size:1.9rem;font-weight:700;color:#2563eb;letter-spacing:.3em;font-family:monospace}
+.pcode-hint{font-size:.68rem;color:#888;margin-top:6px;line-height:1.5}
+label{display:block;font-size:.72rem;font-weight:500;color:#111;margin:12px 0 4px}
+input,select{width:100%;background:#f7f7f7;border:1px solid #e4e4e4;color:#111;padding:9px 11px;border-radius:7px;font-size:.875rem;outline:none}
+input:focus,select:focus{border-color:#111;background:#fff}
+.btn{width:100%;background:#111;color:#fff;border:none;padding:11px;border-radius:7px;font-size:.875rem;cursor:pointer;margin-top:4px;font-weight:600}
+.btn:hover{opacity:.85}
+.btn-sm{background:none;border:1px solid #e4e4e4;color:#888;padding:6px 12px;border-radius:6px;font-size:.75rem;cursor:pointer;margin-top:8px}
+.btn-sm:hover{border-color:#aaa;color:#111}
+.msg{padding:9px 12px;border-radius:7px;font-size:.78rem;text-align:center;display:none;margin-top:4px}
+.err{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;display:block}
+.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d;display:block}
+.inf{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;display:block}
+footer{text-align:center;padding:16px;color:#ccc;font-size:.7rem}
 </style></head>
 <body>
-<header><h1>ESP32 Setup</h1><p>ตั้งค่าการเชื่อมต่อ WiFi และ Server</p></header>
+<header>
+  <div class="brand-mark">&#x26A1;</div>
+  <h1>ESP32 Setup</h1>
+  <p>ตั้งค่าครั้งแรก — AP Mode</p>
+</header>
 <main>
   <div class="card">
     <h2>ข้อมูลอุปกรณ์</h2>
     <div class="row"><span class="lbl">Device ID</span><span class="val" id="did">-</span></div>
-    <div class="lbl" style="margin-top:14px">Pairing Code</div>
-    <div class="pcode" id="pcode">------</div>
-    <div class="hint">ใช้รหัสนี้เพื่อผูกอุปกรณ์กับบัญชีบน relay</div>
+    <div class="pcode-box">
+      <div class="pcode-lbl">Pairing Code</div>
+      <div class="pcode" id="pcode">------</div>
+      <div class="pcode-hint">ใช้รหัสนี้บน Relay Dashboard<br>เพื่อผูกอุปกรณ์กับบัญชี</div>
+    </div>
   </div>
   <div class="card">
-    <h2>การตั้งค่า WiFi</h2>
+    <h2>WiFi</h2>
     <label>เครือข่าย WiFi</label>
     <select id="ssid-sel" onchange="onSel()"><option value="">-- กำลังสแกน... --</option></select>
-    <label>SSID (ถ้าไม่อยู่ในรายการ)</label>
-    <input type="text" id="ssid" placeholder="พิมพ์ชื่อ WiFi เอง" />
+    <label>SSID (พิมพ์เองถ้าไม่อยู่ในรายการ)</label>
+    <input type="text" id="ssid" placeholder="ชื่อ WiFi" />
     <label>รหัสผ่าน</label>
     <input type="password" id="pass" placeholder="WiFi Password" />
-    <button class="btn-sm" onclick="rescan()">สแกนใหม่</button>
+    <button class="btn-sm" onclick="rescan()">&#x21BA; สแกนใหม่</button>
   </div>
   <div class="card">
-    <h2>การตั้งค่า Server</h2>
+    <h2>Server</h2>
     <label>Relay Host</label>
-    <input type="text" id="relay" placeholder="your-relay.railway.app" />
+    <input type="text" id="relay" placeholder="your-relay.railway.app" style="font-family:monospace;font-size:.82rem" />
     <label>ชื่ออุปกรณ์</label>
-    <input type="text" id="devname" placeholder="เช่น โกดัง ชั้น 1" maxlength="63" />
+    <input type="text" id="devname" placeholder="เช่น ESP32 ห้องนอน" maxlength="63" />
   </div>
   <div id="msg" class="msg"></div>
   <button class="btn" onclick="save()">บันทึกและเชื่อมต่อ</button>
 </main>
-<footer>Arduino Nano ESP32 — WiFi Provisioning</footer>
+<footer>Arduino Nano ESP32 &#8212; WiFi Provisioning</footer>
 <script>
 function showMsg(t,c){var e=document.getElementById('msg');e.textContent=t;e.className='msg '+(c||'');}
 function onSel(){var v=document.getElementById('ssid-sel').value;if(v)document.getElementById('ssid').value=v;}
@@ -143,7 +152,7 @@ function loadScan(nets){
   var s=document.getElementById('ssid-sel');
   s.innerHTML='<option value="">-- เลือกจากรายการ --</option>';
   nets.forEach(function(n){var o=document.createElement('option');o.value=n.ssid;
-    o.textContent=n.ssid+' ('+n.rssi+'dBm'+(n.secure?' 🔒':'')+')';s.appendChild(o);});
+    o.textContent=n.ssid+' ('+n.rssi+'dBm'+(n.secure?' [lock]':'')+')';s.appendChild(o);});
 }
 function rescan(){
   showMsg('กำลังสแกน WiFi...','inf');

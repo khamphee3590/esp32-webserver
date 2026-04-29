@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Relay</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #f7f7f7;
+      --surface: #ffffff;
+      --border:  #e4e4e4;
+      --text:    #111111;
+      --muted:   #888888;
+      --dim:     #cccccc;
+      --blue:    #2563eb;
+      --green:   #15803d;
+      --red:     #b91c1c;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    .nav {
+      height: 52px; background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .nav-brand { display: flex; align-items: center; gap: 8px; }
+    .nav-mark { font-size: .9rem; color: var(--muted); }
+    .nav-name { font-size: .875rem; font-weight: 600; }
+    .nav-right { display: flex; align-items: center; gap: 14px; }
+    .nav-email { font-size: .75rem; color: var(--muted); }
+    .nav-link { font-size: .75rem; color: var(--muted); background: none; border: none; cursor: pointer; font-family: 'Inter', sans-serif; padding: 0; }
+    .nav-link:hover { color: var(--text); }
+    .page { max-width: 960px; margin: 0 auto; padding: 40px 24px; }
+    .page-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 32px; gap: 12px; flex-wrap: wrap; }
+    .page-title { font-size: 1.1rem; font-weight: 600; }
+    .btn-add {
+      height: 36px; padding: 0 16px; background: var(--text); color: #fff;
+      border: none; border-radius: 7px; font-size: .8rem; font-weight: 500;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: opacity .15s;
+    }
+    .btn-add:hover { opacity: .8; }
+    .stats { display: flex; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 9px; overflow: hidden; margin-bottom: 28px; }
+    .stat { background: var(--surface); flex: 1; padding: 14px 20px; }
+    .stat-val { font-size: 1.3rem; font-weight: 600; line-height: 1; margin-bottom: 3px; }
+    .stat-lbl { font-size: .7rem; color: var(--muted); }
+    .stat-val.green { color: var(--green); }
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .search { position: relative; flex: 1; min-width: 160px; }
+    .search input {
+      width: 100%; height: 36px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 7px; padding: 0 12px; font-size: .8rem; color: var(--text);
+      font-family: 'Inter', sans-serif; outline: none; transition: border-color .15s;
+    }
+    .search input:focus { border-color: var(--text); }
+    .search input::placeholder { color: var(--dim); }
+    .filter-pills { display: flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+    .fpill {
+      background: var(--surface); border: none; padding: 0 14px; height: 36px;
+      font-size: .75rem; color: var(--muted); cursor: pointer; font-family: 'Inter', sans-serif;
+      border-right: 1px solid var(--border); transition: all .15s;
+    }
+    .fpill:last-child { border-right: none; }
+    .fpill:hover { color: var(--text); background: var(--bg); }
+    .fpill.active { color: var(--text); font-weight: 500; background: var(--bg); }
+    .device-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .device-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px 20px; cursor: pointer; text-decoration: none; color: inherit;
+      display: block; transition: border-color .15s;
+      animation: fadeUp .25s ease both;
+    }
+    .device-card:hover { border-color: #aaaaaa; }
+    .device-card.offline { opacity: .6; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .dc-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; gap: 8px; }
+    .dc-name { font-size: .875rem; font-weight: 600; margin-bottom: 2px; }
+    .dc-id   { font-size: .65rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .dc-status { font-size: .7rem; font-weight: 500; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .dc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .dc-dot.off { background: var(--dim); }
+    @keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+    .dc-dot:not(.off) { animation: blink 2s infinite; }
+    .dc-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 14px; border-top: 1px solid var(--border); }
+    .dc-meta { font-size: .7rem; color: var(--muted); }
+    .role-tag { font-size: .65rem; color: var(--muted); }
+    .dc-del { background: none; border: none; color: var(--dim); cursor: pointer; font-size: .75rem; padding: 2px 6px; border-radius: 4px; transition: color .15s; }
+    .dc-del:hover { color: var(--red); }
+    .empty { text-align: center; padding: 64px 0; color: var(--muted); font-size: .85rem; }
+    .empty-icon { font-size: 2rem; margin-bottom: 12px; opacity: .4; }
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.3); z-index:200; align-items:center; justify-content:center; padding:16px; }
+    .overlay.show { display:flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 100%; max-width: 360px; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+    .modal-title { font-size: .9rem; font-weight: 600; }
+    .btn-x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:4px 6px; border-radius:4px; }
+    .btn-x:hover { color:var(--text); }
+    .m-form { display:flex; flex-direction:column; gap:12px; }
+    .m-field { display:flex; flex-direction:column; gap:4px; }
+    .m-label { font-size:.72rem; font-weight:500; color:var(--text); }
+    .m-input {
+      height:42px; background:var(--bg); border:1px solid var(--border);
+      border-radius:7px; padding:0 12px; font-size:.875rem;
+      color:var(--text); font-family:'Inter',sans-serif; outline:none; transition:border-color .15s;
+    }
+    .m-input:focus { border-color:var(--text); }
+    .m-input.code { font-family:'JetBrains Mono',monospace; font-size:1.2rem; letter-spacing:.2em; text-align:center; height:50px; color:var(--blue); }
+    .btn-pair {
+      height:42px; background:var(--text); color:#fff; border:none; border-radius:7px;
+      font-size:.875rem; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif;
+      transition:opacity .15s; margin-top:4px;
+    }
+    .btn-pair:hover:not(:disabled) { opacity:.8; }
+    .btn-pair:disabled { opacity:.35; cursor:not-allowed; }
+    .m-hint { font-size:.7rem; color:var(--muted); text-align:center; line-height:1.6; }
+    .m-msg { font-size:.75rem; padding:8px 10px; border-radius:6px; }
+    .m-msg.err { background:#fef2f2; color:#7f1d1d; }
+    .m-msg.ok  { background:#f0fdf4; color:#14532d; }
+    .pair-success { text-align:center; padding:12px 0; }
+    .pair-success .ok-icon { font-size:1.8rem; margin-bottom:8px; }
+    .pair-success p { font-size:.82rem; color:var(--muted); }
+    footer { text-align:center; padding:32px 0 24px; color:var(--dim); font-size:.7rem; }
+    @media (max-width:600px) {
+      .device-grid { grid-template-columns:1fr; }
+      .nav-email { display:none; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+function relTime(ts) {
+  if (!ts) return 'ไม่ทราบ';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'เมื่อสักครู่';
+  if (s < 3600) return Math.floor(s/60) + ' นาทีที่แล้ว';
+  if (s < 86400) return Math.floor(s/3600) + ' ชั่วโมงที่แล้ว';
+  return Math.floor(s/86400) + ' วันที่แล้ว';
+}
+
+function DeviceCard({ d, onDelete, idx }) {
+  const handleDel = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('ลบอุปกรณ์นี้ออกจาก dashboard?')) return;
+    onDelete(d.device_id);
+  };
+
+  return (
+    <a href={'/d/' + d.device_id + '/'} className={'device-card' + (d.online?'':' offline')} style={{animationDelay: idx*40+'ms'}}>
+      <div className="dc-head">
+        <div>
+          <div className="dc-name">{d.name || 'ESP32 Device'}</div>
+          <div className="dc-id">{d.device_id}</div>
+        </div>
+        <div className="dc-status">
+          <div className={'dc-dot' + (d.online?'':' off')}></div>
+          {d.online ? 'Online' : 'Offline'}
+        </div>
+      </div>
+      <div className="dc-foot">
+        <span className="dc-meta">
+          {d.online ? 'กำลังใช้งาน' : ('ครั้งล่าสุด ' + relTime(d.last_seen))}
+        </span>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span className="role-tag">{d.role}</span>
+          <button className="dc-del" onClick={handleDel} title="ลบ">✕</button>
+        </div>
+      </div>
+    </a>
+  );
+}
+
+function AddModal({ show, onClose, onPaired }) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg]   = useState({text:'',cls:''});
+  const [done, setDone] = useState(false);
+
+  const pair = async () => {
+    if (!/^\d{6}$/.test(code)) { setMsg({text:'Pairing Code ต้องเป็นตัวเลข 6 หลัก',cls:'err'}); return; }
+    setLoading(true);
+    setMsg({text:'กำลังผูกอุปกรณ์...',cls:''});
+    try {
+      const r = await fetch('/api/devices/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pairingCode: code })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        setDone(true);
+        setTimeout(() => { setDone(false); setCode(''); setMsg({text:'',cls:''}); onClose(); onPaired(); }, 1600);
+      } else {
+        setMsg({text: d.error || 'เกิดข้อผิดพลาด', cls:'err'});
+      }
+    } catch { setMsg({text:'เชื่อมต่อไม่ได้',cls:'err'}); }
+    setLoading(false);
+  };
+
+  const close = () => { setCode(''); setMsg({text:'',cls:''}); setDone(false); onClose(); };
+
+  if (!show) return null;
+  return (
+    <div className="overlay show" onClick={e => e.target===e.currentTarget && close()}>
+      <div className="modal">
+        <div className="modal-head">
+          <span className="modal-title">เพิ่มอุปกรณ์</span>
+          <button className="btn-x" onClick={close}>✕</button>
+        </div>
+        {done
+          ? <div className="pair-success"><div className="ok-icon">✓</div><p>ผูกอุปกรณ์สำเร็จ</p></div>
+          : <div className="m-form">
+              <div className="m-field">
+                <label className="m-label">Pairing Code</label>
+                <input className="m-input code" placeholder="000000" value={code}
+                  onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric"
+                  onKeyDown={e=>e.key==='Enter'&&pair()} />
+              </div>
+              {msg.text && <div className={'m-msg ' + msg.cls}>{msg.text}</div>}
+              <button className="btn-pair" disabled={code.length<6||loading} onClick={pair}>
+                {loading ? 'กำลังผูก...' : 'ผูกอุปกรณ์'}
+              </button>
+              <p className="m-hint">ดู Pairing Code ได้ที่หน้า Setup ของ ESP32<br/>เชื่อม WiFi ชื่อ ESP32-XXXX → เปิด 192.168.4.1</p>
+            </div>
+        }
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [devices, setDevices] = useState([]);
+  const [email, setEmail]     = useState('');
+  const [q, setQ]             = useState('');
+  const [f, setF]             = useState('all');
+  const [add, setAdd]         = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const loadDevices = async () => {
+    try {
+      const r = await fetch('/api/devices');
+      if (r.status === 401) { location.href = '/login'; return; }
+      setDevices(await r.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r=>r.json()).then(d=>setEmail(d.email||'')).catch(()=>{});
+    loadDevices().then(() => setLoading(false));
+    const iv = setInterval(loadDevices, 10000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const logout = () => {
+    fetch('/api/auth/logout', { method: 'POST' }).then(() => location.href = '/login');
+  };
+
+  const deleteDevice = async id => {
+    await fetch('/api/devices/' + id, { method: 'DELETE' });
+    loadDevices();
+  };
+
+  const items = useMemo(() => devices.filter(d => {
+    const mq = (d.name||'').toLowerCase().includes(q.toLowerCase()) || d.device_id.toLowerCase().includes(q.toLowerCase());
+    const mf = f==='all' || (f==='online'&&d.online) || (f==='offline'&&!d.online);
+    return mq && mf;
+  }), [devices, q, f]);
+
+  const online  = devices.filter(d=>d.online).length;
+  const offline = devices.length - online;
+
+  return (
+    <div>
+      <nav className="nav">
+        <div className="nav-brand">
+          <span className="nav-mark">⚡</span>
+          <span className="nav-name">ESP32 Relay</span>
+        </div>
+        <div className="nav-right">
+          <span className="nav-email">{email}</span>
+          <button className="nav-link" onClick={logout}>ออกจากระบบ</button>
+        </div>
+      </nav>
+
+      <div className="page">
+        <div className="page-head">
+          <h1 className="page-title">อุปกรณ์</h1>
+          <button className="btn-add" onClick={()=>setAdd(true)}>+ เพิ่มอุปกรณ์</button>
+        </div>
+
+        <div className="stats">
+          <div className="stat"><div className="stat-val">{devices.length}</div><div className="stat-lbl">ทั้งหมด</div></div>
+          <div className="stat"><div className="stat-val green">{online}</div><div className="stat-lbl">Online</div></div>
+          <div className="stat"><div className="stat-val" style={{color:'var(--muted)'}}>{offline}</div><div className="stat-lbl">Offline</div></div>
+        </div>
+
+        <div className="toolbar">
+          <div className="search">
+            <input placeholder="ค้นหาชื่อหรือ ID..." value={q} onChange={e=>setQ(e.target.value)} />
+          </div>
+          <div className="filter-pills">
+            {[['all','ทั้งหมด'],['online','Online'],['offline','Offline']].map(([v,l])=>(
+              <button key={v} className={'fpill' + (f===v?' active':'')} onClick={()=>setF(v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        {loading
+          ? <div className="empty"><div className="empty-icon">⏳</div>กำลังโหลด...</div>
+          : items.length === 0
+            ? <div className="empty">
+                <div className="empty-icon">📡</div>
+                {devices.length===0 ? 'ยังไม่มีอุปกรณ์ กด + เพิ่มอุปกรณ์' : 'ไม่พบอุปกรณ์'}
+              </div>
+            : <div className="device-grid">
+                {items.map((d,i) => <DeviceCard key={d.device_id} d={d} onDelete={deleteDevice} idx={i} />)}
+              </div>
+        }
+      </div>
+
+      <footer>ESP32 Relay — 2026</footer>
+      <AddModal show={add} onClose={()=>setAdd(false)} onPaired={loadDevices} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
