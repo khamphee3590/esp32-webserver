@@ -8,9 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -123,7 +122,7 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel">
+<script>
 const { useState, useEffect } = React;
 
 const params = new URLSearchParams(window.location.search);
@@ -141,81 +140,73 @@ function pwScore(pw) {
 function Strength({ pw }) {
   const s = pwScore(pw);
   const cls = s <= 1 ? 'w' : s <= 2 ? 'm' : 's';
-  const lbl = ['','อ่อน','ปานกลาง','ดี','แข็งแกร่ง'][s];
+  const lbl = ['', 'อ่อน', 'ปานกลาง', 'ดี', 'แข็งแกร่ง'][s];
   if (!pw) return null;
-  return (
-    <div className="strength">
-      <div className="strength-bars">{[1,2,3,4].map(i => <div key={i} className={'s-bar' + (i<=s?' '+cls:'')}></div>)}</div>
-      <span className="strength-lbl">ความปลอดภัย: {lbl}</span>
-    </div>
+  const R = React.createElement;
+  return R('div', { className: 'strength' },
+    R('div', { className: 'strength-bars' },
+      [1, 2, 3, 4].map(i => R('div', { key: i, className: 's-bar' + (i <= s ? ' ' + cls : '') }))
+    ),
+    R('span', { className: 'strength-lbl' }, 'ความปลอดภัย: ' + lbl)
   );
 }
 
 function LoginForm({ onSuccess }) {
   const [email, setEmail] = useState('');
-  const [pw, setPw]       = useState('');
-  const [show, setShow]   = useState(false);
+  const [pw, setPw] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError]    = useState('');
-  const [t, setT]            = useState({});
+  const [error, setError] = useState('');
+  const [t, setT] = useState({});
 
   const eErr = t.e && !/\S+@\S+/.test(email) ? 'อีเมลไม่ถูกต้อง' : '';
   const pErr = t.p && pw.length < 6 ? 'รหัสผ่านต้องมีอย่างน้อย 6 ตัว' : '';
 
   const submit = async e => {
     e.preventDefault();
-    setT({e:true, p:true});
+    setT({ e: true, p: true });
     if (eErr || pErr || !email || !pw) return;
     setLoading(true);
     setError('');
     try {
-      const r = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pw })
-      });
+      const r = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: pw }) });
       const d = await r.json();
-      if (d.ok) { onSuccess(); }
-      else setError(d.error || 'เกิดข้อผิดพลาด');
+      if (d.ok) { onSuccess(); } else setError(d.error || 'เกิดข้อผิดพลาด');
     } catch { setError('เชื่อมต่อไม่ได้'); }
     setLoading(false);
   };
 
-  return (
-    <form className="form" onSubmit={submit} noValidate>
-      {error && <div className="alert err">{error}</div>}
-      <div className="field">
-        <label className="field-label">อีเมล</label>
-        <input className={'field-input' + (eErr?' err':'')} type="email" placeholder="your@email.com"
-          value={email} onChange={e=>setEmail(e.target.value)} onBlur={()=>setT(t=>({...t,e:true}))} autoComplete="email" />
-        {eErr && <span className="field-err">{eErr}</span>}
-      </div>
-      <div className="field">
-        <label className="field-label">รหัสผ่าน</label>
-        <div className="input-wrap">
-          <input className={'field-input' + (pErr?' err':'')} type={show?'text':'password'}
-            placeholder="••••••••" value={pw}
-            onChange={e=>setPw(e.target.value)} onBlur={()=>setT(t=>({...t,p:true}))} autoComplete="current-password" />
-          <button type="button" className="pw-eye" onClick={()=>setShow(s=>!s)} tabIndex={-1}>{show?'hide':'show'}</button>
-        </div>
-        {pErr && <span className="field-err">{pErr}</span>}
-      </div>
-      <div className="forgot"><a href="/forgot-password">ลืมรหัสผ่าน?</a></div>
-      <button type="submit" className="btn-submit" disabled={loading}>
-        {loading ? <span className="spinner"></span> : 'เข้าสู่ระบบ'}
-      </button>
-    </form>
+  const R = React.createElement;
+  return R('form', { className: 'form', onSubmit: submit, noValidate: true },
+    error && R('div', { className: 'alert err' }, error),
+    R('div', { className: 'field' },
+      R('label', { className: 'field-label' }, 'อีเมล'),
+      R('input', { className: 'field-input' + (eErr ? ' err' : ''), type: 'email', placeholder: 'your@email.com', value: email, onChange: e => setEmail(e.target.value), onBlur: () => setT(t => ({ ...t, e: true })), autoComplete: 'email' }),
+      eErr && R('span', { className: 'field-err' }, eErr)
+    ),
+    R('div', { className: 'field' },
+      R('label', { className: 'field-label' }, 'รหัสผ่าน'),
+      R('div', { className: 'input-wrap' },
+        R('input', { className: 'field-input' + (pErr ? ' err' : ''), type: show ? 'text' : 'password', placeholder: '••••••••', value: pw, onChange: e => setPw(e.target.value), onBlur: () => setT(t => ({ ...t, p: true })), autoComplete: 'current-password' }),
+        R('button', { type: 'button', className: 'pw-eye', onClick: () => setShow(s => !s), tabIndex: -1 }, show ? 'hide' : 'show')
+      ),
+      pErr && R('span', { className: 'field-err' }, pErr)
+    ),
+    R('div', { className: 'forgot' }, R('a', { href: '/forgot-password' }, 'ลืมรหัสผ่าน?')),
+    R('button', { type: 'submit', className: 'btn-submit', disabled: loading },
+      loading ? R('span', { className: 'spinner' }) : 'เข้าสู่ระบบ'
+    )
   );
 }
 
 function RegisterForm({ onSuccess }) {
   const [email, setEmail] = useState('');
-  const [pw, setPw]       = useState('');
-  const [pw2, setPw2]     = useState('');
-  const [show, setShow]   = useState(false);
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError]    = useState('');
-  const [t, setT]            = useState({});
+  const [error, setError] = useState('');
+  const [t, setT] = useState({});
 
   const eErr  = t.e  && !/\S+@\S+/.test(email) ? 'อีเมลไม่ถูกต้อง' : '';
   const pErr  = t.p  && pw.length < 8 ? 'รหัสผ่านต้องมีอย่างน้อย 8 ตัว' : '';
@@ -223,62 +214,51 @@ function RegisterForm({ onSuccess }) {
 
   const submit = async e => {
     e.preventDefault();
-    setT({e:true, p:true, p2:true});
+    setT({ e: true, p: true, p2: true });
     if (eErr || pErr || p2Err || !email || !pw || !pw2) return;
     setLoading(true);
     setError('');
     try {
-      const r = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pw })
-      });
+      const r = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: pw }) });
       const d = await r.json();
-      if (d.ok) { onSuccess(); }
-      else setError(d.error || 'เกิดข้อผิดพลาด');
+      if (d.ok) { onSuccess(); } else setError(d.error || 'เกิดข้อผิดพลาด');
     } catch { setError('เชื่อมต่อไม่ได้'); }
     setLoading(false);
   };
 
-  return (
-    <form className="form" onSubmit={submit} noValidate>
-      {error && <div className="alert err">{error}</div>}
-      <div className="field">
-        <label className="field-label">อีเมล</label>
-        <input className={'field-input' + (eErr?' err':'')} type="email" placeholder="your@email.com"
-          value={email} onChange={e=>setEmail(e.target.value)} onBlur={()=>setT(t=>({...t,e:true}))} />
-        {eErr && <span className="field-err">{eErr}</span>}
-      </div>
-      <div className="field">
-        <label className="field-label">รหัสผ่าน</label>
-        <div className="input-wrap">
-          <input className={'field-input' + (pErr?' err':'')} type={show?'text':'password'}
-            placeholder="อย่างน้อย 8 ตัวอักษร" value={pw}
-            onChange={e=>setPw(e.target.value)} onBlur={()=>setT(t=>({...t,p:true}))} />
-          <button type="button" className="pw-eye" onClick={()=>setShow(s=>!s)} tabIndex={-1}>{show?'hide':'show'}</button>
-        </div>
-        {pErr && <span className="field-err">{pErr}</span>}
-        <Strength pw={pw} />
-      </div>
-      <div className="field">
-        <label className="field-label">ยืนยันรหัสผ่าน</label>
-        <div className="input-wrap">
-          <input className={'field-input' + (p2Err?' err':'')} type={show?'text':'password'}
-            placeholder="กรอกอีกครั้ง" value={pw2}
-            onChange={e=>setPw2(e.target.value)} onBlur={()=>setT(t=>({...t,p2:true}))} />
-        </div>
-        {p2Err && <span className="field-err">{p2Err}</span>}
-      </div>
-      <button type="submit" className="btn-submit" disabled={loading}>
-        {loading ? <span className="spinner"></span> : 'สร้างบัญชี'}
-      </button>
-      <p className="terms">การสมัครถือว่ายอมรับ <a href="#">เงื่อนไขการใช้งาน</a></p>
-    </form>
+  const R = React.createElement;
+  return R('form', { className: 'form', onSubmit: submit, noValidate: true },
+    error && R('div', { className: 'alert err' }, error),
+    R('div', { className: 'field' },
+      R('label', { className: 'field-label' }, 'อีเมล'),
+      R('input', { className: 'field-input' + (eErr ? ' err' : ''), type: 'email', placeholder: 'your@email.com', value: email, onChange: e => setEmail(e.target.value), onBlur: () => setT(t => ({ ...t, e: true })) }),
+      eErr && R('span', { className: 'field-err' }, eErr)
+    ),
+    R('div', { className: 'field' },
+      R('label', { className: 'field-label' }, 'รหัสผ่าน'),
+      R('div', { className: 'input-wrap' },
+        R('input', { className: 'field-input' + (pErr ? ' err' : ''), type: show ? 'text' : 'password', placeholder: 'อย่างน้อย 8 ตัวอักษร', value: pw, onChange: e => setPw(e.target.value), onBlur: () => setT(t => ({ ...t, p: true })) }),
+        R('button', { type: 'button', className: 'pw-eye', onClick: () => setShow(s => !s), tabIndex: -1 }, show ? 'hide' : 'show')
+      ),
+      pErr && R('span', { className: 'field-err' }, pErr),
+      R(Strength, { pw })
+    ),
+    R('div', { className: 'field' },
+      R('label', { className: 'field-label' }, 'ยืนยันรหัสผ่าน'),
+      R('div', { className: 'input-wrap' },
+        R('input', { className: 'field-input' + (p2Err ? ' err' : ''), type: show ? 'text' : 'password', placeholder: 'กรอกอีกครั้ง', value: pw2, onChange: e => setPw2(e.target.value), onBlur: () => setT(t => ({ ...t, p2: true })) })
+      ),
+      p2Err && R('span', { className: 'field-err' }, p2Err)
+    ),
+    R('button', { type: 'submit', className: 'btn-submit', disabled: loading },
+      loading ? R('span', { className: 'spinner' }) : 'สร้างบัญชี'
+    ),
+    R('p', { className: 'terms' }, 'การสมัครถือว่ายอมรับ ', R('a', { href: '#' }, 'เงื่อนไขการใช้งาน'))
   );
 }
 
 function App() {
-  const [tab, setTab]       = useState('login');
+  const [tab, setTab] = useState('login');
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
@@ -288,37 +268,35 @@ function App() {
     }
   }, [success]);
 
-  return (
-    <div className="wrap">
-      <div className="brand">
-        <div className="brand-mark">⚡</div>
-        <div className="brand-name">ESP32 Relay</div>
-        <div className="brand-sub">ควบคุม IoT จากที่นี่</div>
-      </div>
-      <div className="card">
-        {success
-          ? <div className="success">
-              <div className="success-icon">✓</div>
-              <h3>{tab === 'login' ? 'เข้าสู่ระบบสำเร็จ' : 'สร้างบัญชีสำเร็จ'}</h3>
-              <p>กำลังพาไปยัง Dashboard…</p>
-            </div>
-          : <>
-              <div className="tabs">
-                <button className={'tab' + (tab==='login'?' active':'')} onClick={()=>setTab('login')}>เข้าสู่ระบบ</button>
-                <button className={'tab' + (tab==='register'?' active':'')} onClick={()=>setTab('register')}>สมัครสมาชิก</button>
-              </div>
-              {tab === 'login'
-                ? <LoginForm onSuccess={()=>setSuccess(true)} />
-                : <RegisterForm onSuccess={()=>setSuccess(true)} />}
-            </>
-        }
-      </div>
-      <footer>ESP32 Relay — 2026</footer>
-    </div>
+  const R = React.createElement;
+  return R('div', { className: 'wrap' },
+    R('div', { className: 'brand' },
+      R('div', { className: 'brand-mark' }, '⚡'),
+      R('div', { className: 'brand-name' }, 'ESP32 Relay'),
+      R('div', { className: 'brand-sub' }, 'ควบคุม IoT จากที่นี่')
+    ),
+    R('div', { className: 'card' },
+      success
+        ? R('div', { className: 'success' },
+            R('div', { className: 'success-icon' }, '✓'),
+            R('h3', null, tab === 'login' ? 'เข้าสู่ระบบสำเร็จ' : 'สร้างบัญชีสำเร็จ'),
+            R('p', null, 'กำลังพาไปยัง Dashboard…')
+          )
+        : R(React.Fragment, null,
+            R('div', { className: 'tabs' },
+              R('button', { className: 'tab' + (tab === 'login' ? ' active' : ''), onClick: () => setTab('login') }, 'เข้าสู่ระบบ'),
+              R('button', { className: 'tab' + (tab === 'register' ? ' active' : ''), onClick: () => setTab('register') }, 'สมัครสมาชิก')
+            ),
+            tab === 'login'
+              ? R(LoginForm, { onSuccess: () => setSuccess(true) })
+              : R(RegisterForm, { onSuccess: () => setSuccess(true) })
+          )
+    ),
+    R('footer', null, 'ESP32 Relay — 2026')
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
 </body>
 </html>
