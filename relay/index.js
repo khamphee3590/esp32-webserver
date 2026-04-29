@@ -178,6 +178,11 @@ app.use('/d/:deviceId', authRequired, wrap(async (req, res) => {
     const isOwner    = access.role === 'owner';
     const canControl = access.role !== 'viewer';
 
+    // ======= Serve ESP32 dashboard HTML directly from relay =======
+    if ((subPath === '/' || subPath === '' || subPath === '/index.html') && req.method === 'GET') {
+        return res.sendFile(path.join(__dirname, '..', 'data', 'index.html'));
+    }
+
     // ======= Relay-managed routes =======
 
     if (subPath === '/api/gpio/labels') {
