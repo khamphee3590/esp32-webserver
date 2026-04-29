@@ -465,7 +465,7 @@ function App() {
         const lbls = await fetch('api/gpio/labels').then(r=>r.json());
         if (Array.isArray(lbls)) lbls.forEach(l => { labels[l.pin_name] = l.label; });
       } catch {}
-      setPins(data.map((p,i) => ({...p, label: labels[p.name]||'', _i:i})));
+      setPins((data.pins || []).map((p,i) => ({...p, label: labels[p.name]||'', _i:i})));
     } catch {}
     setTimeout(() => setCD(0), 100);
   };

@@ -22,6 +22,7 @@ const deviceUserSchema = new mongoose.Schema({
     role:      { type: String, enum: ['owner', 'editor', 'viewer'], default: 'viewer' },
     joined_at: { type: Number, default: Date.now },
 });
+deviceUserSchema.index({ user_id: 1, device_id: 1 }, { unique: true });
 
 const gpioLabelSchema = new mongoose.Schema({
     device_id: String,
@@ -98,7 +99,11 @@ async function getDevicesByUser(userId) {
     });
 }
 async function pairDevice(userId, deviceId, role = 'owner') {
-    return DeviceUser.create({ user_id: userId, device_id: deviceId, role });
+    return DeviceUser.findOneAndUpdate(
+        { user_id: userId, device_id: deviceId },
+        { $setOnInsert: { user_id: userId, device_id: deviceId, role, joined_at: Date.now() } },
+        { upsert: true, new: true }
+    );
 }
 async function unpairDevice(userId, deviceId) {
     return DeviceUser.findOneAndDelete({ user_id: userId, device_id: deviceId });

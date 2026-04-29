@@ -11,6 +11,7 @@ const router     = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const BASE_URL   = process.env.BASE_URL   || 'http://localhost:3000';
 const COOKIE_OPT = { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 };
+const wrap       = fn => (req, res, next) => fn(req, res, next).catch(next);
 
 // ======= Email =======
 function createTransport() {
@@ -138,7 +139,7 @@ function reset(){
 });
 
 // ======= Auth API =======
-router.post('/api/auth/register', async (req, res) => {
+router.post('/api/auth/register', wrap(async (req, res) => {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'ข้อมูลไม่ครบ' });
     if (password.length < 8)  return res.status(400).json({ error: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร' });
@@ -149,9 +150,9 @@ router.post('/api/auth/register', async (req, res) => {
     // ต้องใส่ await ตรงนี้
     await db.createUser(email, bcrypt.hashSync(password, 10));
     res.json({ ok: true });
-});
+}));
 
-router.post('/api/auth/login', async (req, res) => {
+router.post('/api/auth/login', wrap(async (req, res) => {
     const { email, password } = req.body || {};
     const user = await db.getUserByEmail(email); // ตัวนี้คุณใส่ไว้ถูกแล้ว
     if (!user || !bcrypt.compareSync(password, user.password_hash))
@@ -161,7 +162,7 @@ router.post('/api/auth/login', async (req, res) => {
     const token = jwt.sign({ userId: user._id || user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, COOKIE_OPT);
     res.json({ ok: true });
-});
+}));
 
 router.post('/api/auth/logout', (req, res) => {
     res.clearCookie('token');
@@ -177,7 +178,7 @@ router.get('/api/auth/me', (req, res) => {
     }
 });
 
-router.post('/api/auth/forgot-password', async (req, res) => {
+router.post('/api/auth/forgot-password', wrap(async (req, res) => {
     const { email } = req.body || {};
     const user = await db.getUserByEmail(email);
     if (user) {
@@ -188,9 +189,9 @@ router.post('/api/auth/forgot-password', async (req, res) => {
         try { await sendResetEmail(email, token); } catch (e) { console.error('[Email]', e.message); }
     }
     res.json({ ok: true });
-});
+}));
 
-router.post('/api/auth/reset-password', async (req, res) => {
+router.post('/api/auth/reset-password', wrap(async (req, res) => {
     const { token, password } = req.body || {};
     if (!token || !password || password.length < 8)
         return res.status(400).json({ error: 'ข้อมูลไม่ถูกต้อง' });
@@ -201,6 +202,6 @@ router.post('/api/auth/reset-password', async (req, res) => {
     // ต้องใส่ await ตรงนี้
     await db.updatePassword(user._id || user.id, bcrypt.hashSync(password, 10));
     res.json({ ok: true });
-});
+}));
 
 module.exports = { router, JWT_SECRET };

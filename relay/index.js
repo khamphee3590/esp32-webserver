@@ -92,10 +92,23 @@ wss.on('connection', (ws, req) => {
         try { msg = JSON.parse(jsonPart); } catch { return; }
 
         if (msg.type === 'hello') {
-            deviceId = msg.deviceId;
+            const nextDeviceId = String(msg.deviceId || '').trim();
+            const pairingCode  = String(msg.pairingCode || '').trim();
+            if (!/^[A-Fa-f0-9]{12}$/.test(nextDeviceId) || !/^\d{6}$/.test(pairingCode)) {
+                ws.close(1008, 'Invalid device identity');
+                return;
+            }
+
+            const existing = await db.getDeviceById(nextDeviceId);
+            if (existing?.pairing_code && existing.pairing_code !== pairingCode) {
+                ws.close(1008, 'Invalid pairing code');
+                return;
+            }
+
+            deviceId = nextDeviceId;
+            await db.upsertDevice(deviceId, msg.name, pairingCode);
             if (devices.has(deviceId)) devices.get(deviceId).terminate();
             devices.set(deviceId, ws);
-            await db.upsertDevice(deviceId, msg.name, msg.pairingCode);
             console.log(`[Device] ${deviceId} "${msg.name || ''}" connected (total: ${devices.size})`);
             return;
         }
