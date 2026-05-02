@@ -125,9 +125,19 @@
     .pair-success .ok-icon { font-size:1.8rem; margin-bottom:8px; }
     .pair-success p { font-size:.82rem; color:var(--muted); }
     footer { text-align:center; padding:32px 0 24px; color:var(--dim); font-size:.7rem; }
+    .nav-ham-wrap { position:relative; }
+    .nav-ham { display:none; background:none; border:none; cursor:pointer; padding:6px 8px; border-radius:6px; color:var(--muted); font-size:1.1rem; line-height:1; }
+    .nav-ham:hover { color:var(--text); background:var(--bg); }
+    .nav-overlay { position:fixed; inset:0; z-index:150; }
+    .nav-menu { position:absolute; top:calc(100% + 6px); right:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:6px; min-width:180px; box-shadow:0 4px 20px rgba(0,0,0,.1); z-index:200; }
+    .nav-menu-sep { font-size:.72rem; color:var(--muted); padding:6px 10px 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .nav-menu-item { display:block; width:100%; text-align:left; padding:8px 10px; background:none; border:none; cursor:pointer; font-size:.82rem; color:var(--text); border-radius:6px; font-family:'Inter',sans-serif; }
+    .nav-menu-item:hover { background:var(--bg); }
     @media (max-width:600px) {
       .device-grid { grid-template-columns:1fr; }
       .nav-email { display:none; }
+      .nav-link { display:none; }
+      .nav-ham { display:block; }
     }
   </style>
 </head>
@@ -228,6 +238,7 @@ function App() {
   const [q, setQ] = useState('');
   const [f, setF] = useState('all');
   const [add, setAdd] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadDevices = async () => {
@@ -272,7 +283,15 @@ function App() {
       ),
       R('div', { className: 'nav-right' },
         R('span', { className: 'nav-email' }, email),
-        R('button', { className: 'nav-link', onClick: logout }, 'ออกจากระบบ')
+        R('button', { className: 'nav-link', onClick: logout }, 'ออกจากระบบ'),
+        R('div', { className: 'nav-ham-wrap' },
+          R('button', { className: 'nav-ham', onClick: () => setMenuOpen(o => !o), 'aria-label': 'เมนู' }, menuOpen ? '✕' : '☰'),
+          menuOpen && R('div', { className: 'nav-overlay', onClick: () => setMenuOpen(false) }),
+          menuOpen && R('div', { className: 'nav-menu' },
+            email && R('div', { className: 'nav-menu-sep' }, email),
+            R('button', { className: 'nav-menu-item', onClick: () => { setMenuOpen(false); logout(); } }, 'ออกจากระบบ')
+          )
+        )
       )
     ),
     R('div', { className: 'page' },

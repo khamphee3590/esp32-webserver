@@ -436,6 +436,7 @@ function App() {
   const [devName, setDevName] = useState('ESP32');
   const [countdown, setCD] = useState(Math.ceil(GPIO_POLL_MS / 1000));
   const [otaOpen, setOtaOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [role, setRole] = useState('owner');
   const gpioLoadingRef = useRef(false);
   const statusLoadingRef = useRef(false);
@@ -620,10 +621,17 @@ function App() {
     onClick: () => fetch('/api/auth/logout', {
       method: 'POST'
     }).then(() => location.href = '/login')
-  }, "\u0E2D\u0E2D\u0E01"))), React.createElement("div", {
+  }, "\u0E2D\u0E2D\u0E01"), React.createElement("button", {
+    className: "nav-ham",
+    onClick: () => setSidebarOpen(o => !o),
+    "aria-label": "\u0E40\u0E21\u0E19\u0E39"
+  }, sidebarOpen ? "\u2715" : "\u2630"))), React.createElement("div", {
     className: "body"
-  }, React.createElement("aside", {
-    className: "sidebar"
+  }, React.createElement("div", {
+    className: "sidebar-overlay" + (sidebarOpen ? " show" : ""),
+    onClick: () => setSidebarOpen(false)
+  }), React.createElement("aside", {
+    className: "sidebar" + (sidebarOpen ? " open" : "")
   }, React.createElement("div", {
     className: "s-section"
   }, React.createElement("div", {

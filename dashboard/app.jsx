@@ -230,8 +230,9 @@ function App() {
   const [showSettings, setSS] = useState(false);
   const [devName, setDevName] = useState('ESP32');
   const [countdown, setCD]    = useState(Math.ceil(GPIO_POLL_MS / 1000));
-  const [otaOpen, setOtaOpen] = useState(false);
-  const [role, setRole]       = useState('owner');
+  const [otaOpen, setOtaOpen]       = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [role, setRole]               = useState('owner');
   const gpioLoadingRef        = useRef(false);
   const statusLoadingRef      = useRef(false);
   const labelsRef             = useRef({});
@@ -355,11 +356,14 @@ function App() {
           <span className="nav-badge">{isLocalMode ? 'Local' : 'Relay'}</span>
           {(canControl||isOwner) && <button className="nav-btn" onClick={()=>setSS(true)}>⚙ ตั้งค่า</button>}
           {!isLocalMode && <button className="nav-btn" onClick={()=>fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')}>ออก</button>}
+          <button className="nav-ham" onClick={()=>setSidebarOpen(o=>!o)} aria-label="เมนู">{sidebarOpen?'✕':'☰'}</button>
         </div>
       </nav>
 
       <div className="body">
-        <aside className="sidebar">
+        <div className={"sidebar-overlay"+(sidebarOpen?" show":"")} onClick={()=>setSidebarOpen(false)}></div>
+        <aside className={"sidebar"+(sidebarOpen?" open":"")}>
+
           <div className="s-section">
             <div className="s-title">สถานะ</div>
             <div className="status-grid">
